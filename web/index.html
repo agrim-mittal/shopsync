@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ShopSync</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23111827'/><path d='M9 12h14l-1.2 11H10.2z' fill='none' stroke='white' stroke-width='2'/><path d='M12.5 12v-1.5a3.5 3.5 0 0 1 7 0V12' fill='none' stroke='white' stroke-width='2'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/app.css">
+  <script>try{document.documentElement.dataset.theme=localStorage.getItem("ss-theme")||"light"}catch(e){}</script>
+</head>
+<body class="app">
+
+  <!-- ============================== SIDEBAR ============================== -->
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark" data-icon="bag" data-size="16"></span>ShopSync</div>
+
+    <nav class="side-nav">
+      <span class="nav-glider" aria-hidden="true"></span>
+      <button class="nav-item active" data-view="discover"><span data-icon="home"></span><span>Overview</span></button>
+      <button class="nav-item" data-view="shop"><span data-icon="bag"></span><span>Compare prices</span></button>
+      <button class="nav-item" data-view="orders"><span data-icon="box"></span><span>Orders</span><span class="nav-badge" id="ordersBadge"></span></button>
+      <button class="nav-item" data-open-chat><span data-icon="chat"></span><span>Assistant</span></button>
+    </nav>
+
+    <div class="side-card">
+      <div class="sc-icon"><span data-icon="spark" data-size="16"></span></div>
+      <strong>Shopping assistant</strong>
+      <p>Ask for picks, comparisons, return policies or the best time to buy.</p>
+      <button class="btn-primary small" data-open-chat>Open assistant</button>
+    </div>
+
+    <div class="user-block">
+      <div class="avatar" id="userAvatar">?</div>
+      <div class="user-meta">
+        <strong id="userName">…</strong>
+        <small id="userEmail"></small>
+      </div>
+      <button class="icon-btn" id="logoutBtn" title="Sign out" aria-label="Sign out"><span data-icon="logout" data-size="16"></span></button>
+    </div>
+  </aside>
+
+  <!-- ============================== MAIN ============================== -->
+  <div class="main">
+    <header class="topbar">
+      <div class="search">
+        <span class="search-icon" data-icon="search" data-size="16"></span>
+        <input id="globalSearch" type="search" placeholder="Search products or brands" autocomplete="off">
+        <kbd>/</kbd>
+      </div>
+      <div class="top-actions">
+        <span class="live-pill"><span class="live-dot"></span><span>Live</span><small id="lastSync"></small></span>
+        <button class="icon-btn" id="themeToggle" aria-label="Toggle theme"></button>
+        <button class="icon-btn" id="alertsBtn" aria-label="Notifications"><span data-icon="bell" data-size="17"></span><span class="count hidden" id="alertCount">0</span></button>
+      </div>
+    </header>
+
+    <!-- ------------------------------ OVERVIEW ------------------------------ -->
+    <section class="view active" id="view-discover">
+      <div class="hero">
+        <div class="hero-grid" aria-hidden="true"></div>
+        <div class="hero-orb" aria-hidden="true"></div>
+        <div class="hero-content">
+          <p class="hero-kicker" id="heroDate"></p>
+          <h1 id="greeting">Overview</h1>
+          <p class="hero-sub">Live prices and orders across Amazon, Flipkart, Myntra and Croma.</p>
+          <form class="ask-bar" id="heroAsk">
+            <span class="ask-icon" data-icon="spark" data-size="18"></span>
+            <input id="heroAskInput" type="text" autocomplete="off" placeholder="Ask the assistant">
+            <button class="btn-primary small" type="submit">Ask</button>
+          </form>
+          <div class="quick-chips" id="heroChips"></div>
+        </div>
+        <div class="hero-metrics">
+          <div class="metric"><span class="m-label">Products tracked</span><span class="m-value" data-count="18">0</span></div>
+          <div class="metric"><span class="m-label">Stores connected</span><span class="m-value" data-count="4">0</span></div>
+          <div class="metric"><span class="m-label">Orders in progress</span><span class="m-value" id="heroActive">0</span></div>
+          <div class="metric"><span class="m-label">Savings on today's drops</span><span class="m-value" id="heroSavings">₹0</span></div>
+        </div>
+      </div>
+
+      <div class="section-head reveal">
+        <div>
+          <h2>Recommended for you</h2>
+          <p>Ranked by your orders, recently viewed items, ratings and price trend.</p>
+        </div>
+        <button class="link-btn" data-open-chat data-prompt="Recommend something for me">More suggestions</button>
+      </div>
+      <div class="rec-row reveal" id="recRow"></div>
+
+      <div class="section-head reveal">
+        <div>
+          <h2>Largest price drops</h2>
+          <p>Best current price compared with the 30-day average.</p>
+        </div>
+      </div>
+      <div class="deal-table reveal" id="dealGrid"></div>
+    </section>
+
+    <!-- ------------------------------ COMPARE ------------------------------ -->
+    <section class="view" id="view-shop">
+      <div class="page-head">
+        <div>
+          <h1>Compare prices</h1>
+          <p id="resultMeta">Live prices from 4 stores.</p>
+        </div>
+        <select id="sortSelect" class="select" aria-label="Sort products">
+          <option value="savings">Sort: Biggest savings</option>
+          <option value="price-asc">Sort: Price, low to high</option>
+          <option value="price-desc">Sort: Price, high to low</option>
+          <option value="rating">Sort: Rating</option>
+        </select>
+      </div>
+      <div class="seg" id="categoryChips">
+        <button class="active" data-cat="All">All</button>
+        <button data-cat="Electronics">Electronics</button>
+        <button data-cat="Fashion">Fashion</button>
+        <button data-cat="Home & Kitchen">Home &amp; Kitchen</button>
+      </div>
+      <div class="product-grid" id="productGrid"></div>
+    </section>
+
+    <!-- ------------------------------ ORDERS ------------------------------ -->
+    <section class="view" id="view-orders">
+      <div class="page-head">
+        <div>
+          <h1>Orders</h1>
+          <p>Every order from every store on one timeline.</p>
+        </div>
+        <div class="head-actions">
+          <button class="btn-ghost" id="demoOrderBtn"><span data-icon="plus" data-size="16"></span>Simulate order</button>
+          <button class="btn-primary" id="importBtn"><span data-icon="mail" data-size="16"></span>Import from email / SMS</button>
+        </div>
+      </div>
+      <div class="metrics" id="orderStats"></div>
+      <div class="order-toolbar">
+        <div class="seg" id="marketChips">
+          <button class="active" data-market="All">All stores</button>
+          <button data-market="Amazon">Amazon</button>
+          <button data-market="Flipkart">Flipkart</button>
+          <button data-market="Myntra">Myntra</button>
+          <button data-market="Croma">Croma</button>
+          <button data-market="Other">Other stores</button>
+        </div>
+        <div class="seg" id="statusSeg">
+          <button class="active" data-filter="All">All</button>
+          <button data-filter="active">In progress</button>
+          <button data-filter="delivered">Delivered</button>
+          <button data-filter="cancelled">Cancelled</button>
+        </div>
+      </div>
+      <div class="order-list" id="orderList"></div>
+    </section>
+
+    <footer class="app-footer">ShopSync · Marketplace prices, orders and policies are simulated for demonstration.</footer>
+  </div>
+
+  <!-- mobile bottom navigation -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-view="discover"><span data-icon="home"></span>Overview</button>
+    <button class="nav-item" data-view="shop"><span data-icon="bag"></span>Compare</button>
+    <button class="nav-item" data-view="orders"><span data-icon="box"></span>Orders</button>
+    <button class="nav-item" data-open-chat><span data-icon="chat"></span>Assistant</button>
+  </nav>
+
+  <!-- ============================== COMPARE TRAY ============================== -->
+  <div class="compare-tray" id="compareTray">
+    <div class="tray-items" id="trayItems"></div>
+    <div class="tray-actions">
+      <button class="link-btn" id="trayClear">Clear</button>
+      <button class="btn-primary small" id="trayCompare">Compare</button>
+    </div>
+  </div>
+
+  <!-- ============================== MODALS ============================== -->
+  <div class="modal" id="productModal" aria-hidden="true">
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="pmTitle">
+      <button class="icon-btn modal-close" data-close aria-label="Close"><span data-icon="close" data-size="16"></span></button>
+      <div id="productModalBody"></div>
+    </div>
+  </div>
+
+  <div class="modal" id="compareModal" aria-hidden="true">
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card wide" role="dialog" aria-modal="true">
+      <button class="icon-btn modal-close" data-close aria-label="Close"><span data-icon="close" data-size="16"></span></button>
+      <div id="compareModalBody"></div>
+    </div>
+  </div>
+
+
+  <div class="modal" id="importModal" aria-hidden="true">
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card import-card" role="dialog" aria-modal="true">
+      <button class="icon-btn modal-close" data-close aria-label="Close"><span data-icon="close" data-size="16"></span></button>
+      <h2 class="cmp-title">Import orders from emails and messages</h2>
+      <p class="muted" style="margin:0 0 16px">Track orders from any store, such as Nykaa, AJIO, Meesho, Zepto or Lenskart. ShopSync reads the
+        order number, product, amount, courier, tracking number and status, and later messages update the same order.</p>
+      <div class="seg" id="importTabs">
+        <button class="active" data-tab="paste">Paste a message</button>
+        <button data-tab="auto">Forward automatically</button>
+        <button data-tab="log">Activity</button>
+      </div>
+
+      <div class="imp-pane" data-pane="paste">
+        <div class="sample-row"><span class="muted">Try a sample:</span><span id="impSamples"></span></div>
+        <div class="imp-grid">
+          <div class="imp-form">
+            <div class="seg small" id="impSource">
+              <button class="active" data-source="Email">Email</button>
+              <button data-source="SMS">SMS / message</button>
+            </div>
+            <input id="impFrom" class="input" placeholder="From (optional), e.g. orders@nykaa.com">
+            <input id="impSubject" class="input" placeholder="Subject (optional)">
+            <textarea id="impBody" class="input" rows="8" placeholder="Paste the email or SMS text here"></textarea>
+            <div class="imp-actions">
+              <button class="btn-ghost" id="impPreview">Read message</button>
+              <button class="btn-primary" id="impSave"><span class="spinner"></span><span class="btn-label">Add to my orders</span></button>
+            </div>
+          </div>
+          <div class="imp-result" id="impResult">
+            <div class="imp-empty"><span data-icon="mail" data-size="22"></span><p>Paste a message and click <strong>Read message</strong> to see what ShopSync finds.</p></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="imp-pane" data-pane="auto" hidden>
+        <p class="field-label">Your private forwarding address</p>
+        <div class="hook-box">
+          <code id="hookUrl">…</code>
+          <button class="btn-ghost small" id="copyHook"><span data-icon="copy" data-size="14"></span>Copy</button>
+          <button class="btn-ghost small" id="regenHook" title="Create a new address and disable the old one">Reset</button>
+        </div>
+        <p class="hint"><span data-icon="info" data-size="14"></span>Anything sent to this address with a POST request is read as a message for your account. Keep it private, and use Reset if it leaks.
+          It must be a public address (for example your Render URL) for phones and Gmail to reach it.</p>
+        <div class="how-grid">
+          <div class="how">
+            <div class="how-head"><span data-icon="mail" data-size="18"></span><strong>Gmail</strong></div>
+            <ol>
+              <li><a href="/api/inbox/gmail-script" id="gmailScriptLink">Download your Gmail script</a> (your address is already filled in).</li>
+              <li>Open <a href="https://script.google.com" target="_blank" rel="noopener">script.google.com</a>, create a project and paste it.</li>
+              <li>Run <code>forwardOrderEmails</code> once and allow access.</li>
+              <li>Add a time-driven trigger: every 15 minutes.</li>
+            </ol>
+          </div>
+          <div class="how">
+            <div class="how-head"><span data-icon="phone" data-size="18"></span><strong>iPhone (Shortcuts)</strong></div>
+            <ol>
+              <li>Shortcuts → Automation → New → <em>Message</em>.</li>
+              <li>Set <em>Message contains</em> “order”, choose <em>Run immediately</em>.</li>
+              <li>Add <em>Get Contents of URL</em>: paste your address, Method POST, Request body JSON with key <code>body</code> = <em>Shortcut Input</em> and <code>source</code> = SMS.</li>
+            </ol>
+          </div>
+          <div class="how">
+            <div class="how-head"><span data-icon="chat" data-size="18"></span><strong>Android (SMS)</strong></div>
+            <ol>
+              <li>Install an “SMS forwarder to webhook” app from the Play Store.</li>
+              <li>Add a rule for messages containing “order”, “shipped” or “delivered”.</li>
+              <li>Set the webhook URL to your address (POST). Plain text or JSON both work.</li>
+            </ol>
+          </div>
+        </div>
+        <details class="test-curl">
+          <summary>Test it from a terminal</summary>
+          <pre id="curlExample"></pre>
+        </details>
+      </div>
+
+      <div class="imp-pane" data-pane="log" hidden>
+        <div class="activity" id="impActivity"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================== NOTIFICATIONS ============================== -->
+  <aside class="drawer" id="alertsPanel" aria-hidden="true">
+    <div class="drawer-head">
+      <h2>Notifications</h2>
+      <button class="icon-btn" id="closeAlerts" aria-label="Close"><span data-icon="close" data-size="16"></span></button>
+    </div>
+    <div class="alert-list" id="alertList"></div>
+  </aside>
+
+  <!-- ============================== ASSISTANT ============================== -->
+  <button class="chat-fab" id="chatFab" aria-label="Open assistant"><span data-icon="chat" data-size="22"></span></button>
+  <section class="chat-panel" id="chatPanel" aria-hidden="true">
+    <header class="chat-head">
+      <div class="chat-avatar"><span data-icon="spark" data-size="16"></span></div>
+      <div>
+        <strong>Shopping assistant</strong>
+        <small id="aiEngine"></small>
+      </div>
+      <button class="icon-btn" id="chatClose" aria-label="Close"><span data-icon="close" data-size="16"></span></button>
+    </header>
+    <div class="chat-body" id="chatBody"></div>
+    <div class="chat-suggestions" id="chatSuggestions"></div>
+    <form class="chat-input" id="chatForm">
+      <input id="chatInput" type="text" placeholder="Ask about products, prices or policies" autocomplete="off">
+      <button class="send-btn" type="submit" aria-label="Send"><span data-icon="send" data-size="16"></span></button>
+    </form>
+  </section>
+
+  <div class="toast-stack" id="toastStack"></div>
+
+  <script src="js/icons.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

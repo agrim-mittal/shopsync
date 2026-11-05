@@ -1,0 +1,14 @@
+# Render Blueprint: Render reads this file to create the ShopSync web service.
+# Dashboard: New + > Blueprint > pick this repository.
+services:
+  - type: web
+    name: shopsync
+    runtime: docker
+    plan: free
+    healthCheckPath: /login.html
+    autoDeploy: true
+    envVars:
+      # Optional: lets Gemini write the assistant's replies and read order emails.
+      # Render asks for the value when you create the service; leave it empty to skip.
+      - key: GEMINI_API_KEY
+        sync: false

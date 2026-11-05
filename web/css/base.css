@@ -1,0 +1,151 @@
+/* ==========================================================================
+   ShopSync design tokens: neutral greys + a single blue accent.
+   ========================================================================== */
+:root,
+[data-theme="light"] {
+  --bg: #f7f7f8;
+  --surface: #ffffff;
+  --surface-2: #f3f4f6;
+  --surface-hover: #f9fafb;
+  --border: #e5e7eb;
+  --border-strong: #d1d5db;
+  --text: #111827;
+  --text-2: #374151;
+  --muted: #6b7280;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-soft: #eff4ff;
+  --accent-2: #4f46e5;
+  --hero: linear-gradient(135deg, #0b1020 0%, #0f1a36 55%, #172554 100%);
+  --shadow-lg: 0 2px 4px rgba(16, 24, 40, .04), 0 16px 40px rgba(16, 24, 40, .10);
+  --good: #15803d;
+  --good-soft: #f0fdf4;
+  --bad: #b91c1c;
+  --bad-soft: #fef2f2;
+  --warn: #a16207;
+  --warn-soft: #fefce8;
+  --btn-bg: #111827;
+  --btn-text: #ffffff;
+  --shadow: 0 1px 2px rgba(16, 24, 40, .05), 0 8px 24px rgba(16, 24, 40, .06);
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, .06);
+  --overlay: rgba(17, 24, 39, .35);
+
+  /* store colours: muted, only used for small dots and chart lines */
+  --amazon: #c27c0e;
+  --flipkart: #3b6fd8;
+  --myntra: #c2477a;
+  --croma: #23917f;
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --ease: cubic-bezier(.2, .7, .2, 1);
+  --spring: cubic-bezier(.34, 1.4, .64, 1);
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --bg: #0e1013;
+  --surface: #15171b;
+  --surface-2: #1c1f24;
+  --surface-hover: #1a1d22;
+  --border: #25282e;
+  --border-strong: #33373e;
+  --text: #ececee;
+  --text-2: #c5c7cc;
+  --muted: #8b8f98;
+  --accent: #6b9bff;
+  --accent-hover: #8bb0ff;
+  --accent-soft: rgba(107, 155, 255, .12);
+  --accent-2: #818cf8;
+  --hero: linear-gradient(135deg, #0d1222 0%, #111a33 55%, #18244d 100%);
+  --shadow-lg: 0 2px 4px rgba(0, 0, 0, .3), 0 16px 40px rgba(0, 0, 0, .45);
+  --good: #4bb36b;
+  --good-soft: rgba(75, 179, 107, .12);
+  --bad: #f0645a;
+  --bad-soft: rgba(240, 100, 90, .12);
+  --warn: #d4a72c;
+  --warn-soft: rgba(212, 167, 44, .12);
+  --btn-bg: #ececee;
+  --btn-text: #111317;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .3);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3);
+  --overlay: rgba(0, 0, 0, .55);
+  --amazon: #d9a03f;
+  --flipkart: #6f97e6;
+  --myntra: #d77aa0;
+  --croma: #4fb5a3;
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; }
+
+body {
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-feature-settings: "cv11", "ss01";
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: var(--accent); }
+::selection { background: var(--accent-soft); }
+.ic { display: block; flex: none; }
+
+/* -------- buttons -------- */
+.btn-primary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border: 1px solid var(--btn-bg); border-radius: var(--radius-sm); padding: 0 16px; min-height: 40px;
+  font-weight: 600; font-size: 14px; color: var(--btn-text); background: var(--btn-bg);
+  transition: opacity .15s, transform .2s var(--ease), box-shadow .2s;
+}
+.btn-primary { position: relative; overflow: hidden; }
+.btn-primary::after {
+  content: ""; position: absolute; inset: 0; transform: translateX(-120%);
+  background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,.22) 50%, transparent 70%);
+  transition: transform .6s var(--ease);
+}
+.btn-primary:hover { opacity: .92; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(17, 24, 39, .18); }
+.btn-primary:hover::after { transform: translateX(120%); }
+.btn-primary:active { transform: translateY(1px); }
+.btn-primary:disabled { opacity: .55; cursor: default; }
+.btn-primary.small { min-height: 34px; padding: 0 12px; font-size: 13px; }
+
+.btn-ghost {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border: 1px solid var(--border-strong); background: var(--surface); border-radius: var(--radius-sm);
+  min-height: 40px; padding: 0 14px; font-weight: 500; transition: background .15s, border-color .15s;
+}
+.btn-ghost:hover { background: var(--surface-2); }
+
+.icon-btn {
+  position: relative; width: 36px; height: 36px; flex: none; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--surface); color: var(--text-2);
+  display: grid; place-items: center; transition: background .15s, color .15s;
+}
+.icon-btn:hover { background: var(--surface-2); color: var(--text); }
+
+.spinner {
+  width: 16px; height: 16px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent;
+  animation: spin .7s linear infinite; display: none; opacity: .8;
+}
+.loading .spinner { display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* store dot */
+.dot-store { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex: none; background: var(--sc, var(--muted)); }
+.dot-store.amazon, .s-Amazon { --sc: var(--amazon); }
+.dot-store.flipkart, .s-Flipkart { --sc: var(--flipkart); }
+.dot-store.myntra, .s-Myntra { --sc: var(--myntra); }
+.dot-store.croma, .s-Croma { --sc: var(--croma); }
+
+@keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } }
+@keyframes fadeIn { from { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}
