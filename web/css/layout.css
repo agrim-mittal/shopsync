@@ -262,3 +262,38 @@ span.flip { display: grid; transform: scaleX(-1); }
   .kpi small { font-size: 12px; }
   .ov-head h2.big { font-size: 28px; }
 }
+
+/* ---------- today's best deals: labelled horizontal bars ---------- */
+.deal-sum { display: flex; flex-direction: column; align-items: flex-end; text-align: right; flex: none; }
+.deal-sum strong { font-family: var(--display); font-size: 30px; font-weight: 600; letter-spacing: -.04em; line-height: 1.1; color: var(--good); }
+.deal-sum small { color: var(--muted); font-size: 12px; }
+.deal-bars { display: flex; flex-direction: column; gap: 4px; }
+.db-row {
+  display: grid; grid-template-columns: minmax(250px, 1.5fr) minmax(100px, 1fr) 76px; align-items: center; gap: 16px;
+  width: 100%; padding: 9px 10px; border: 0; border-radius: 14px; background: none; text-align: left;
+  transition: background .2s, transform .35s var(--spring);
+}
+.db-row:hover { background: var(--surface-2); transform: translateX(4px); }
+.db-name { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.db-name > span:last-child { display: flex; flex-direction: column; min-width: 0; }
+.db-name strong { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.db-name small { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.db-name .store-name { display: inline-flex; align-items: center; gap: 4px; color: var(--text-2); }
+.db-ic { width: 34px; height: 34px; flex: none; border-radius: 10px; display: grid; place-items: center; background: var(--surface-2); color: var(--text-2); transition: background .25s, color .25s, transform .4s var(--spring); }
+.db-row:hover .db-ic { background: var(--green-800); color: var(--butter); transform: rotate(-6deg); }
+.db-track { height: 12px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+.db-row:hover .db-track { background: var(--surface); }
+.db-track i { display: block; height: 100%; width: calc(var(--w) * 1%); border-radius: 99px; background: var(--butter-strong); transform-origin: left; transition: background .3s, width .6s var(--spring); }
+.db-row.grow .db-track i { animation: growX .9s var(--spring) both; animation-delay: calc(var(--i) * 70ms + .1s); }
+.db-row:first-child .db-track i, .db-row:hover .db-track i { background: var(--green-800); }
+[data-theme="dark"] .db-row:first-child .db-track i, [data-theme="dark"] .db-row:hover .db-track i { background: var(--accent); }
+.db-pct { font-family: var(--display); font-weight: 600; font-size: 15px; text-align: right; color: var(--good); font-variant-numeric: tabular-nums; }
+.deal-hint { display: flex; align-items: center; gap: 6px; margin: 12px 0 0; font-size: 12.5px; }
+@keyframes growX { from { transform: scaleX(0); } }
+@media (max-width: 900px) {
+  .db-row { grid-template-columns: 1fr 64px; gap: 6px 10px; }
+  .db-track { grid-column: 1 / -1; grid-row: 2; height: 8px; }
+  .db-pct { grid-row: 1; grid-column: 2; }
+  .deal-sum { align-items: flex-start; text-align: left; }
+}
+.db-name small b { color: var(--text); font-weight: 600; }

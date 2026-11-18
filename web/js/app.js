@@ -234,36 +234,22 @@
   $("#globalSearch").addEventListener("blur", () => $("#searchBox").classList.remove("wide"));
 
   // ======================================================================= overview: drops chart + carousel
-  S.dropMode = "pct";
   S.drops = [];
+  /** Today's deals as labelled horizontal bars: readable without hovering. */
   function renderDropChart(animate) {
     const box = $("#dropChart");
     if (!box || !S.drops.length) return;
-    const pct = S.dropMode === "pct";
-    const vals = S.drops.map((d) => pct ? Math.max(0, d.belowAverage) : d.bestPrice);
-    const max = Math.max(...vals, 1);
-    const prev = box.querySelector(".dc-bar.on");
-    const onId = prev ? prev.dataset.id : S.drops[0].product.id;
-    box.innerHTML = `<div class="dc-grid"><span></span><span></span><span></span></div>` + S.drops.map((d, i) => {
-      const v = vals[i];
-      const label = pct ? (v > 0 ? "−" + v.toFixed(1) + "%" : "0%") : inr(v);
-      return `<button class="dc-bar ${d.product.id === onId ? "on" : ""} ${animate ? "grow" : ""}" style="--h:${Math.max(6, v / max * 100).toFixed(1)};--i:${i}" data-id="${d.product.id}" data-open="${d.product.id}">
-        <span class="dc-tip"><small>${esc(d.product.shortName)}</small>${label} · ${d.bestMarketplace}</span>
-        <i></i><span class="dc-ic">${pIcon(d.product.kind, 15)}</span></button>`;
-    }).join("");
+    const rows = S.drops.filter((d) => d.belowAverage > 0).slice(0, 6);
+    if (!rows.length) { box.innerHTML = `<div class="empty">No products are below their usual price right now.</div>`; return; }
+    const max = Math.max(...rows.map((d) => d.belowAverage));
+    box.innerHTML = rows.map((d, i) => `
+      <button class="db-row ${animate ? "grow" : ""}" style="--w:${(d.belowAverage / max * 100).toFixed(1)};--i:${i}" data-id="${d.product.id}" data-open="${d.product.id}">
+        <span class="db-name"><span class="db-ic">${pIcon(d.product.kind, 16)}</span><span><strong>${esc(d.product.shortName)}</strong>
+          <small><b>${inr(d.bestPrice)}</b> now · usually ${inr(d.average30)} · <span class="store-name s-${d.bestMarketplace}"><span class="dot-store"></span>${d.bestMarketplace}</span></small></span></span>
+        <span class="db-track"><i></i></span>
+        <span class="db-pct">${d.belowAverage.toFixed(1)}% off</span>
+      </button>`).join("");
   }
-  $("#dropChart").addEventListener("mouseover", (e) => {
-    const b = e.target.closest(".dc-bar");
-    if (!b) return;
-    $$("#dropChart .dc-bar").forEach((x) => x.classList.toggle("on", x === b));
-  });
-  $("#dropMode").addEventListener("click", (e) => {
-    const b = e.target.closest("[data-mode]");
-    if (!b) return;
-    $$("#dropMode button").forEach((x) => x.classList.toggle("on", x === b));
-    S.dropMode = b.dataset.mode;
-    renderDropChart(true);
-  });
 
   // drag-to-scroll carousel with arrows and a progress bar
   const rec = $("#recRow");
@@ -378,10 +364,7 @@
       const firstChart = !S.drops.length;
       S.drops = deals;
       if (firstChart || !refresh) renderDropChart(true);
-      else S.drops.forEach((d) => {          // live refresh: update tooltips without redrawing
-        const tip = $(`#dropChart .dc-bar[data-id="${d.product.id}"] .dc-tip`);
-        if (tip) tip.innerHTML = `<small>${esc(d.product.shortName)}</small>${S.dropMode === "pct" ? (d.belowAverage > 0 ? "−" + d.belowAverage.toFixed(1) + "%" : "0%") : inr(d.bestPrice)} · ${d.bestMarketplace}`;
-      });
+      else renderDropChart(false);
       if (!refresh) {
         $("#dealGrid").innerHTML = `<div class="deal-row head"><div>Product</div><div class="hide-md">Lowest at</div><div class="num">Price</div><div class="num hide-md">30-day avg</div><div class="num">vs. average</div></div>`
           + deals.map(dealRow).join("");
@@ -389,7 +372,8 @@
       } else {
         deals.forEach((d) => setPrice($(`[data-price="deal|${d.product.id}"]`), "deal|" + d.product.id, d.bestPrice));
       }
-      const savings = Math.round(deals.reduce((sum, d) => sum + Math.max(0, d.average30 - d.bestPrice), 0));
+      const savings = Math.round(deals.filter((d) => d.belowAverage > 0).slice(0, 6)
+        .reduce((sum, d) => sum + Math.max(0, d.average30 - d.bestPrice), 0));   // same 6 products as the chart
       if (Number($("#heroSavings").dataset.current ?? -1) !== savings) countUp($("#heroSavings"), savings, "₹");
       if (Number($("#heroActive").dataset.current ?? -1) !== summary.active) countUp($("#heroActive"), summary.active);
       $("#ordersBadge").textContent = summary.active || "";

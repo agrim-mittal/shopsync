@@ -119,10 +119,14 @@
       <div class="ov-row">
         <div class="ov-panel drops-panel">
           <div class="ov-head">
-            <div><small class="muted">Below the 30-day average on today's top drops</small><h2 class="big" id="heroSavings">₹0</h2></div>
-            <div class="mini-seg" id="dropMode"><button class="on" data-mode="pct">% drop</button><button data-mode="price">Price</button></div>
+            <div>
+              <h2>Today's best deals</h2>
+              <p class="muted">How far below its usual price each product is right now (usual = average of the last 30 days).</p>
+            </div>
+            <div class="deal-sum"><strong id="heroSavings">₹0</strong><small>saved on these 6 vs their usual prices</small></div>
           </div>
-          <div class="drop-chart" id="dropChart"></div>
+          <div class="deal-bars" id="dropChart"></div>
+          <p class="deal-hint muted"><span data-icon="info" data-size="13"></span>Longer bar = bigger discount. Click a product to compare its prices in every store.</p>
         </div>
 
         <div class="ov-ask" data-glow>
