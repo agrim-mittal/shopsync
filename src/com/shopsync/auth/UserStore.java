@@ -50,6 +50,10 @@ public class UserStore {
         return user;
     }
 
+    public java.util.Collection<User> allUsers() {
+        return byId.values();
+    }
+
     public User findById(String id) {
         return id == null ? null : byId.get(id);
     }

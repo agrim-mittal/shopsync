@@ -66,6 +66,15 @@ public class ProductService {
         return list;
     }
 
+    /** Cheapest in-stock offer, or null when sold out everywhere. */
+    public Offer bestOffer(Product p) {
+        Offer best = null;
+        for (Offer o : offersFor(p)) {
+            if (o.isInStock() && (best == null || o.getPrice() < best.getPrice())) best = o;
+        }
+        return best;
+    }
+
     public PriceInsight insight(Product p, int days) {
         return new PriceInsight(offersFor(p), days);
     }

@@ -72,6 +72,7 @@ public final class Json {
     }
 
     private static void writeString(StringBuilder sb, String s) {
+        s = Money.indianGrouping(s);   // every ₹ amount the UI shows uses Indian digit grouping
         sb.append('"');
         for (int i = 0; i < s.length(); i++) {
             char c = s.charAt(i);

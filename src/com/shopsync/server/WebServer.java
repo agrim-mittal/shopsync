@@ -13,6 +13,10 @@ import com.shopsync.service.OrderTrackingService;
 import com.shopsync.service.PriceComparisonService;
 import com.shopsync.service.ProductService;
 import com.shopsync.service.ShoppingAssistant;
+import com.shopsync.service.SmartFeatures;
+import com.shopsync.alerts.PriceAlertRule;
+import com.shopsync.pricing.CheckoutProfile;
+import com.shopsync.protection.StoredDocument;
 import com.shopsync.util.Json;
 import com.shopsync.util.JsonParser;
 import com.sun.net.httpserver.HttpExchange;
@@ -58,12 +62,14 @@ public class WebServer {
     private final ShoppingAssistant assistant;
     private final LiveUpdateEngine liveEngine;
     private final InboxService inbox;
+    private final SmartFeatures smart;
     private final Consumer<User> onSignup;
 
     public WebServer(int port, Path webRoot, UserStore users, SessionManager sessions,
                      PriceComparisonService priceService, OrderTrackingService orderService,
                      ProductService productService, ShoppingAssistant assistant,
-                     LiveUpdateEngine liveEngine, InboxService inbox, Consumer<User> onSignup) throws IOException {
+                     LiveUpdateEngine liveEngine, InboxService inbox, SmartFeatures smart,
+                     Consumer<User> onSignup) throws IOException {
         this.webRoot = webRoot.toAbsolutePath().normalize();
         this.users = users;
         this.sessions = sessions;
@@ -73,6 +79,7 @@ public class WebServer {
         this.assistant = assistant;
         this.liveEngine = liveEngine;
         this.inbox = inbox;
+        this.smart = smart;
         this.onSignup = onSignup;
 
         server = HttpServer.create(new InetSocketAddress(port), 0);
@@ -161,6 +168,8 @@ public class WebServer {
                 out.put("text", productService.aiDescription(prod));
                 out.put("poweredBy", assistant.poweredBy());
                 sendJson(ex, 200, out);
+            } else if (parts[1].equals("final-price")) {
+                sendJson(ex, 200, smart.finalPrice.calculate(prod, smart.finalPrice.profile(uid)));
             } else if (parts[1].equals("history")) {
                 sendJson(ex, 200, productService.insight(prod, r.qInt("days", 90, 7, 90)));
             } else {
@@ -174,7 +183,9 @@ public class WebServer {
                 if (prod != null && !picked.contains(prod)) picked.add(prod);
             }
             if (picked.size() < 2) { sendJson(ex, 400, error("Pick at least two products to compare.")); return; }
-            sendJson(ex, 200, productService.compareProducts(picked.subList(0, Math.min(4, picked.size()))));
+            Map<String, Object> cmp = productService.compareProducts(picked.subList(0, Math.min(4, picked.size())));
+            addFinalPriceRow(cmp, picked.subList(0, Math.min(4, picked.size())), uid);
+            sendJson(ex, 200, cmp);
 
         } else if (p.equals("/api/recommendations") && m.equals("GET")) {
             Category cat = null;
@@ -246,6 +257,102 @@ public class WebServer {
             ex.getResponseHeaders().set("Content-Disposition", "attachment; filename=\"shopsync-gmail.gs\"");
             send(ex, 200, script.getBytes(StandardCharsets.UTF_8));
 
+        // ------------------------------------------------------------ smart price alerts
+        } else if (p.equals("/api/price-alerts") && m.equals("GET")) {
+            sendJson(ex, 200, smart.alerts.views(uid));
+
+        } else if (p.equals("/api/price-alerts") && m.equals("POST")) {
+            Map<String, Object> b = JsonParser.parseObject(readBody(ex));
+            try {
+                PriceAlertRule rule = smart.alerts.create(uid, str(b.get("productId")), num(b.get("targetPrice"), 0),
+                        b.get("minRating") == null || str(b.get("minRating")).isEmpty() ? null : num(b.get("minRating"), 0),
+                        strings(b.get("stores")), Boolean.TRUE.equals(b.get("inStockOnly")));
+                sendJson(ex, 201, smart.alerts.view(rule));
+            } catch (IllegalArgumentException e) {
+                sendJson(ex, 400, error(e.getMessage()));
+            }
+
+        } else if (p.startsWith("/api/price-alerts/") && m.equals("POST")) {
+            String[] parts = p.substring("/api/price-alerts/".length()).split("/");
+            if (parts.length == 2 && parts[1].equals("rearm")) {
+                PriceAlertRule r2 = smart.alerts.rearm(uid, parts[0]);
+                if (r2 == null) sendJson(ex, 404, error("Alert not found")); else sendJson(ex, 200, smart.alerts.view(r2));
+            } else if (parts.length == 2 && parts[1].equals("delete")) {
+                sendJson(ex, smart.alerts.delete(uid, parts[0]) ? 200 : 404, okOr404());
+            } else {
+                sendJson(ex, 404, error("Unknown alert action"));
+            }
+
+        // ------------------------------------------------------------ returns & warranty
+        } else if (p.equals("/api/protection") && m.equals("GET")) {
+            sendJson(ex, 200, smart.protection.overview(uid));
+
+        } else if (p.startsWith("/api/protection/") && p.endsWith("/settings") && m.equals("POST")) {
+            String orderId = URLDecoder.decode(p.substring("/api/protection/".length(), p.length() - "/settings".length()), StandardCharsets.UTF_8);
+            Map<String, Object> b = JsonParser.parseObject(readBody(ex));
+            try {
+                smart.protection.setOverride(uid, orderId, (int) num(b.get("returnDays"), -1), (int) num(b.get("warrantyMonths"), -1));
+                sendJson(ex, 200, smart.protection.overview(uid));
+            } catch (IllegalArgumentException e) {
+                sendJson(ex, 400, error(e.getMessage()));
+            }
+
+        } else if (p.equals("/api/documents") && m.equals("POST")) {
+            Map<String, Object> b = JsonParser.parseObject(readBody(ex, 8 * 1024 * 1024));
+            try {
+                StoredDocument d = smart.protection.upload(uid, str(b.get("orderId")), str(b.get("kind")),
+                        str(b.get("fileName")), str(b.get("mimeType")), str(b.get("data")) == null ? "" : str(b.get("data")));
+                sendJson(ex, 201, d);
+            } catch (IllegalArgumentException e) {
+                sendJson(ex, 400, error(e.getMessage()));
+            }
+
+        } else if (p.startsWith("/api/documents/") && m.equals("GET")) {
+            StoredDocument d = smart.protection.document(uid, p.substring("/api/documents/".length()));
+            if (d == null) { sendJson(ex, 404, error("File not found")); return; }
+            ex.getResponseHeaders().set("Content-Type", d.getMimeType());
+            ex.getResponseHeaders().set("Content-Disposition", "inline; filename=\"" + d.getFileName().replace("\"", "") + "\"");
+            ex.getResponseHeaders().set("X-Content-Type-Options", "nosniff");
+            send(ex, 200, d.getData());
+
+        } else if (p.startsWith("/api/documents/") && p.endsWith("/delete") && m.equals("POST")) {
+            String id = p.substring("/api/documents/".length(), p.length() - "/delete".length());
+            sendJson(ex, smart.protection.deleteDocument(uid, id) ? 200 : 404, okOr404());
+
+        // ------------------------------------------------------------ true final price
+        } else if (p.equals("/api/checkout-profile") && m.equals("GET")) {
+            sendJson(ex, 200, smart.finalPrice.profile(uid));
+
+        } else if (p.equals("/api/checkout-profile") && m.equals("POST")) {
+            Map<String, Object> b = JsonParser.parseObject(readBody(ex));
+            CheckoutProfile prof = new CheckoutProfile(strings(b.get("cards")), Boolean.TRUE.equals(b.get("cashOnDelivery")),
+                    num(b.get("exchangeValue"), 0), !Boolean.FALSE.equals(b.get("useCoupons")));
+            smart.finalPrice.saveProfile(uid, prof);
+            sendJson(ex, 200, prof);
+
+        // ------------------------------------------------------------ budget guardian
+        } else if (p.equals("/api/budget") && m.equals("GET")) {
+            sendJson(ex, 200, smart.budget.summary(uid));
+
+        } else if (p.equals("/api/budget") && m.equals("POST")) {
+            Map<String, Object> b = JsonParser.parseObject(readBody(ex));
+            Map<String, Double> values = new LinkedHashMap<>();
+            Object raw = b.get("budgets");
+            if (raw instanceof Map) {
+                for (Map.Entry<?, ?> e : ((Map<?, ?>) raw).entrySet()) values.put(String.valueOf(e.getKey()), num(e.getValue(), 0));
+            }
+            try {
+                smart.budget.setBudgets(uid, values);
+                smart.budget.checkWarnings(java.util.Collections.singletonList(uid));
+                sendJson(ex, 200, smart.budget.summary(uid));
+            } catch (IllegalArgumentException e) {
+                sendJson(ex, 400, error(e.getMessage()));
+            }
+
+        // ------------------------------------------------------------ dashboard glance
+        } else if (p.equals("/api/glance") && m.equals("GET")) {
+            sendJson(ex, 200, glance(uid));
+
         } else if (p.equals("/api/demo/order") && m.equals("POST")) {
             Order o = liveEngine.placeRandomOrder(uid);
             sendJson(ex, o == null ? 503 : 201, o == null ? error("No stock available") : o);
@@ -253,6 +360,67 @@ public class WebServer {
         } else {
             sendJson(ex, 404, error("Unknown endpoint: " + m + " " + p));
         }
+    }
+
+    // ============================================================ smart-feature helpers
+
+    /** Adds a "True final price" row (with the user's cards and offers) to a product comparison. */
+    @SuppressWarnings("unchecked")
+    private void addFinalPriceRow(Map<String, Object> cmp, List<Product> picked, String uid) {
+        CheckoutProfile prof = smart.finalPrice.profile(uid);
+        List<Object> values = new ArrayList<>();
+        double best = Double.MAX_VALUE;
+        int winner = -1, ties = 0;
+        for (int i = 0; i < picked.size(); i++) {
+            Map<String, Object> q = smart.finalPrice.bestQuote(picked.get(i), prof);
+            if (q == null) { values.add("—"); continue; }
+            double v = ((Number) q.get("finalPrice")).doubleValue();
+            values.add(String.format("₹%,.0f (%s)", v, q.get("store")));
+            if (v < best) { best = v; winner = i; ties = 0; } else if (v == best) ties++;
+        }
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("label", "True final price");
+        row.put("values", values);
+        row.put("winner", ties > 0 ? -1 : winner);
+        ((List<Object>) cmp.get("rows")).add(1, row);
+    }
+
+    private Map<String, Object> glance(String uid) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        Map<String, Object> budget = smart.budget.summary(uid);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> total = ((List<Map<String, Object>>) budget.get("lines")).get(0);
+        out.put("budget", total);
+        int watching = 0, triggered = 0;
+        for (PriceAlertRule r : smart.alerts.rules(uid)) {
+            if (r.getStatus() == PriceAlertRule.Status.TRIGGERED) triggered++; else watching++;
+        }
+        Map<String, Object> al = new LinkedHashMap<>();
+        al.put("watching", watching);
+        al.put("triggered", triggered);
+        out.put("alerts", al);
+        Map<String, Object> prot = smart.protection.overview(uid);
+        prot.remove("items");
+        out.put("protection", prot);
+        return out;
+    }
+
+    private static Map<String, Object> okOr404() {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("ok", true);
+        return m;
+    }
+
+    private static double num(Object o, double def) {
+        if (o instanceof Number) return ((Number) o).doubleValue();
+        try { return o == null ? def : Double.parseDouble(o.toString().replace(",", "").trim()); }
+        catch (NumberFormatException e) { return def; }
+    }
+
+    private static List<String> strings(Object o) {
+        List<String> out = new ArrayList<>();
+        if (o instanceof List) for (Object x : (List<?>) o) if (x != null) out.add(x.toString());
+        return out;
     }
 
     // ============================================================ inbox webhook
@@ -379,13 +547,17 @@ public class WebServer {
     // =============================================================== helpers
 
     private static String readBody(HttpExchange ex) throws IOException {
+        return readBody(ex, MAX_BODY_BYTES);
+    }
+
+    private static String readBody(HttpExchange ex, int limit) throws IOException {
         try (InputStream in = ex.getRequestBody()) {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             byte[] buf = new byte[4096];
             int n;
             while ((n = in.read(buf)) != -1) {
                 out.write(buf, 0, n);
-                if (out.size() > MAX_BODY_BYTES) throw new IOException("Request body too large");
+                if (out.size() > limit) throw new IOException("Request body too large");
             }
             return out.toString(StandardCharsets.UTF_8);
         }

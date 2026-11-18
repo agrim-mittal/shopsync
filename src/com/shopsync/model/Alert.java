@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicLong;
 /** A notification shown in the dashboard's live feed (price drop or order update). */
 public class Alert implements JsonSerializable {
 
-    public enum Type { PRICE_DROP, ORDER_UPDATE }
+    public enum Type { PRICE_DROP, ORDER_UPDATE, PRICE_TARGET, BUDGET, REMINDER }
 
     private static final AtomicLong SEQUENCE = new AtomicLong();
 

@@ -54,6 +54,17 @@ public class LiveUpdateEngine {
                 orderUpdateSeconds, TimeUnit.SECONDS);
     }
 
+    /** Runs an extra background task every few seconds (price-alert checks, budget warnings, reminders). */
+    public void every(int seconds, Runnable task) {
+        scheduler.scheduleWithFixedDelay(() -> {
+            try {
+                task.run();
+            } catch (RuntimeException e) {
+                System.err.println("Background task failed: " + e);
+            }
+        }, seconds, seconds, TimeUnit.SECONDS);
+    }
+
     public void stop() {
         scheduler.shutdownNow();
     }

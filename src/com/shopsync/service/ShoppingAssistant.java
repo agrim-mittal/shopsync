@@ -4,6 +4,7 @@ import com.shopsync.ai.LlmClient;
 import com.shopsync.auth.User;
 import com.shopsync.data.PolicyBook;
 import com.shopsync.model.Category;
+import com.shopsync.model.Offer;
 import com.shopsync.model.Order;
 import com.shopsync.model.Policy;
 import com.shopsync.model.Product;
@@ -11,6 +12,7 @@ import com.shopsync.model.Product;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -44,7 +46,7 @@ public class ShoppingAssistant {
             + "Only use facts given to you in the prompt; never invent prices, specs or policies. "
             + "Write in plain text with at most light **bold** for product names. Keep answers under 120 words.";
 
-    public enum Intent { GREETING, ORDERS, COMPARE, POLICY, HISTORY, DESCRIBE, RECOMMEND, UNKNOWN }
+    public enum Intent { GREETING, ORDERS, PRICE_ALERT, BUDGET, PROTECTION, FINAL_PRICE, COMPARE, POLICY, HISTORY, DESCRIBE, RECOMMEND, UNKNOWN }
 
     private static final Set<String> STOP = new HashSet<>(Arrays.asList(
             "the", "and", "with", "for", "vs", "versus", "compare", "between", "what", "which", "is", "are",
@@ -60,6 +62,7 @@ public class ShoppingAssistant {
     private final ProductService products;
     private final OrderTrackingService orders;
     private final LlmClient llm;
+    private SmartFeatures smart;
     /** Last products discussed per user, so follow-ups like "what's its return policy?" work. */
     private final Map<String, List<Product>> context = new ConcurrentHashMap<>();
 
@@ -67,6 +70,11 @@ public class ShoppingAssistant {
         this.products = products;
         this.orders = orders;
         this.llm = llm;
+    }
+
+    /** Connects the money-saving features (alerts, budgets, returns/warranty, final price). */
+    public void connect(SmartFeatures smart) {
+        this.smart = smart;
     }
 
     public String poweredBy() {
@@ -88,6 +96,10 @@ public class ShoppingAssistant {
         switch (intent) {
             case GREETING:  r = greeting(user); break;
             case ORDERS:    r = orderStatus(user); break;
+            case PRICE_ALERT: r = priceAlert(user, text, mentioned); break;
+            case BUDGET:    r = budget(user); break;
+            case PROTECTION: r = protection(user); break;
+            case FINAL_PRICE: r = finalPrice(user, mentioned); break;
             case COMPARE:   r = compare(user, text); break;
             case POLICY:    r = policies(followUp ? mentioned.subList(0, Math.min(3, mentioned.size()))
                                     : mentioned.subList(0, Math.min(1, mentioned.size())), text); break;
@@ -135,6 +147,17 @@ public class ShoppingAssistant {
         if (t.isEmpty() || t.matches("^(hi|hii+|hello|hey|namaste|help|yo|good (morning|evening|afternoon))\\b.*")
                 && mentioned.isEmpty() && t.length() < 30) return Intent.GREETING;
         if (has(t, "what can you do", "how do you work", "help me use")) return Intent.GREETING;
+        if (smart != null) {
+            if (has(t, "alert me", "notify me", "tell me when", "let me know when", "price alert", "set an alert",
+                    "set alert", "watch the price", "ping me")) return Intent.PRICE_ALERT;
+            if (has(t, "my budget", "spending", "spent", "how much have i", "how much can i", "monthly budget",
+                    "budget left", "budget is left", "budget remaining", "left in my budget", "over budget", "overspend", "expenses", "my spend")) return Intent.BUDGET;
+            if (has(t, "return window", "return deadline", "can i still return", "my warranty", "warranties",
+                    "warranty expir", "invoice", "return by", "returns closing", "deadline", "closing soon", "return windows",
+                    "returns are", "still return", "expiring")) return Intent.PROTECTION;
+            if (has(t, "final price", "checkout price", "true price", "actual price", "bank offer", "card offer",
+                    "after offers", "cheapest deal", "with my card", "effective price", "net price")) return Intent.FINAL_PRICE;
+        }
         if (has(t, "my order", "my orders", "track", "where is my", "delivery status", "when will my",
                 "out for delivery", "shipped")) return Intent.ORDERS;
         if (has(t, "compare", " vs ", " vs.", "versus", "difference between", " or ") && !has(t, "return or", "refund or")
@@ -265,6 +288,173 @@ public class ShoppingAssistant {
         return value;
     }
 
+
+    // ===================================================================== smart features
+
+    private static final Pattern RATING = Pattern.compile("(?:rating|rated|stars?)\\s*(?:above|over|at least|>=?|of)?\\s*([0-5](?:\\.\\d)?)");
+    private static final Pattern PRICE = Pattern.compile(
+            "(?:below|under|less than|drops? to|falls? to|reaches|hits|at|<)\\s*(?:rs\\.?|inr|₹)?\\s*([\\d,]+(?:\\.\\d+)?)\\s*(k|thousand|lakh)?");
+
+    private Reply priceAlert(User user, String text, List<Product> mentioned) {
+        Reply r = new Reply();
+        if (mentioned.isEmpty()) {
+            List<Map<String, Object>> views = smart.alerts.views(user.getId());
+            if (views.isEmpty()) {
+                r.text = "Tell me the product and your target, e.g. \"alert me when the **Galaxy S24** drops below **₹68,000** with rating above **4.2**\".";
+            } else {
+                StringBuilder sb = new StringBuilder("You're watching **" + views.size() + "** price" + (views.size() > 1 ? "s" : "") + ":\n");
+                for (Map<String, Object> v : views) {
+                    @SuppressWarnings("unchecked") Product prod = (Product) ((Map<String, Object>) v.get("product")).get("product");
+                    sb.append("• ").append(prod.getName()).append(": target ").append(rupees(v.get("targetPrice")))
+                      .append(", now ").append(rupees(v.get("currentPrice")))
+                      .append("TRIGGERED".equals(String.valueOf(v.get("status"))) ? " — **target reached**" : "").append('\n');
+                    r.facts.append(prod.getName()).append(" target ").append(v.get("targetPrice"))
+                           .append(", current ").append(v.get("currentPrice")).append(", advice: ").append(v.get("adviceText")).append('\n');
+                }
+                r.text = sb.toString().trim();
+            }
+            r.data.put("action", action("alerts", "Open price alerts"));
+            return r;
+        }
+        Product p = mentioned.get(0);
+        r.focus = new ArrayList<>(Collections.singletonList(p));
+        Matcher pm = PRICE.matcher(text);
+        Double target = null;
+        while (pm.find()) {
+            double v = Double.parseDouble(pm.group(1).replace(",", ""));
+            String unit = pm.group(2) == null ? "" : pm.group(2);
+            if (unit.equals("k") || unit.equals("thousand")) v *= 1000;
+            if (unit.equals("lakh")) v *= 100_000;
+            if (v >= 100) { target = v; break; }
+        }
+        Matcher rm = RATING.matcher(text);
+        Double minRating = rm.find() ? Double.parseDouble(rm.group(1)) : null;
+        if (target == null) {
+            Offer best = products.bestOffer(p);
+            double suggested = best == null ? 0 : Math.round(best.getPrice() * 0.93 / 100) * 100.0;
+            r.text = "What price should I watch for on the **" + p.getName() + "**? It's " + (best == null ? "out of stock"
+                    : rupees(best.getPrice()) + " at " + best.getMarketplace()) + " right now. Try \"alert me below "
+                    + rupees(suggested) + "\".";
+            r.suggestions.add("Alert me when " + shortName(p) + " is below " + rupees(suggested));
+            return r;
+        }
+        try {
+            com.shopsync.alerts.PriceAlertRule rule = smart.alerts.create(user.getId(), p.getId(), target, minRating, null,
+                    has(text, "in stock"));
+            Map<String, Object> v = smart.alerts.view(rule);
+            r.text = "Done. I'll alert you when the **" + p.getName() + "** is at or below **" + rupees(target) + "**"
+                    + (minRating != null ? " with a rating of **" + minRating + "+**" : "") + ". It's "
+                    + rupees(v.get("currentPrice")) + " at " + v.get("currentStore") + " now.\n\n" + v.get("adviceText");
+            r.facts.append("Alert created for ").append(p.getName()).append(" at or below ").append(target)
+                   .append(minRating != null ? " and rating >= " + minRating : "")
+                   .append(". Current best: ").append(v.get("currentPrice")).append(" at ").append(v.get("currentStore"))
+                   .append(". Advice: ").append(v.get("adviceText")).append('\n');
+            r.data.put("action", action("alerts", "View my price alerts"));
+        } catch (IllegalArgumentException e) {
+            r.text = e.getMessage();
+        }
+        return r;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Reply budget(User user) {
+        Reply r = new Reply();
+        Map<String, Object> s = smart.budget.summary(user.getId());
+        List<Map<String, Object>> lines = (List<Map<String, Object>>) s.get("lines");
+        StringBuilder sb = new StringBuilder("In **" + s.get("monthLabel") + "** you've spent **" + rupees(s.get("spent")) + "**.\n");
+        for (Map<String, Object> l : lines) {
+            if ("NO_BUDGET".equals(l.get("level"))) continue;
+            sb.append("• ").append(l.get("name")).append(": ").append(l.get("percent")).append("% of ")
+              .append(rupees(l.get("budget"))).append(" used, ").append(rupees(l.get("remaining"))).append(" left")
+              .append("OVER".equals(l.get("level")) ? " — **over budget**" : "WARNING".equals(l.get("level")) ? " — **nearly used up**" : "")
+              .append('\n');
+            r.facts.append(l.get("name")).append(" budget ").append(l.get("budget")).append(", spent ").append(l.get("spent"))
+                   .append(" (").append(l.get("percent")).append("%), remaining ").append(l.get("remaining"))
+                   .append(", about ").append(l.get("perDay")).append(" per day for the rest of the month\n");
+        }
+        for (Object i : (List<Object>) s.get("insights")) r.facts.append("Insight: ").append(i).append('\n');
+        sb.append(s.get("daysLeft")).append(" days left this month.");
+        r.text = sb.toString();
+        r.data.put("action", action("budget", "Open budget guardian"));
+        return r;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Reply protection(User user) {
+        Reply r = new Reply();
+        Map<String, Object> o = smart.protection.overview(user.getId());
+        List<Map<String, Object>> items = (List<Map<String, Object>>) o.get("items");
+        StringBuilder sb = new StringBuilder();
+        List<String> returns = new ArrayList<>(), warranties = new ArrayList<>();
+        for (Map<String, Object> it : items) {
+            String rs = String.valueOf(it.get("returnStatus")), ws = String.valueOf(it.get("warrantyStatus"));
+            if (rs.equals("CLOSING_SOON") || rs.equals("OPEN"))
+                returns.add(it.get("productName") + " (" + it.get("store") + "): return by **" + it.get("returnBy") + "**, "
+                        + it.get("returnDaysLeft") + " day(s) left");
+            if (ws.equals("EXPIRING_SOON"))
+                warranties.add(it.get("productName") + ": warranty ends **" + it.get("warrantyUntil") + "** ("
+                        + it.get("warrantyDaysLeft") + " days)");
+        }
+        sb.append(returns.isEmpty() ? "No return windows are open right now.\n" : "**Return windows still open:**\n");
+        for (String x : returns) sb.append("• ").append(x).append('\n');
+        if (!warranties.isEmpty()) {
+            sb.append("\n**Warranties expiring within 30 days:**\n");
+            for (String x : warranties) sb.append("• ").append(x).append('\n');
+        }
+        sb.append("\nYou have ").append(o.get("activeWarranties")).append(" active warranties and ")
+          .append(o.get("documentCount")).append(" stored invoice/warranty document(s).");
+        r.text = sb.toString();
+        r.facts.append(r.text.replace("**", "")).append('\n');
+        r.data.put("action", action("protection", "Open returns & warranty"));
+        return r;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Reply finalPrice(User user, List<Product> mentioned) {
+        Reply r = new Reply();
+        if (mentioned.isEmpty()) {
+            r.text = "Which product? e.g. \"final price of the **iPhone 15** with my cards\". I'll add delivery, fees, coupons, "
+                    + "bank offers and exchange bonuses for every store.";
+            return r;
+        }
+        Product p = mentioned.get(0);
+        r.focus = new ArrayList<>(Collections.singletonList(p));
+        Map<String, Object> calc = smart.finalPrice.calculate(p, smart.finalPrice.profile(user.getId()));
+        List<Map<String, Object>> quotes = (List<Map<String, Object>>) calc.get("quotes");
+        if (quotes.isEmpty()) { r.text = p.getName() + " is out of stock everywhere right now."; return r; }
+        StringBuilder sb = new StringBuilder("True checkout price for the **" + p.getName() + "**:\n");
+        for (Map<String, Object> q : quotes) {
+            sb.append("• ").append(q.get("store")).append(": listed ").append(rupees(q.get("listedPrice")))
+              .append(" → **").append(rupees(q.get("finalPrice"))).append("**")
+              .append(((Number) q.get("totalSavings")).doubleValue() > 0 ? " (save " + rupees(q.get("totalSavings")) + ")" : "")
+              .append('\n');
+            r.facts.append(q.get("store")).append(": listed ").append(q.get("listedPrice")).append(", final ")
+                   .append(q.get("finalPrice")).append(", lines ").append(q.get("lines")).append('\n');
+        }
+        if (calc.get("summary") != null) { sb.append('\n').append(calc.get("summary")); r.facts.append(calc.get("summary")).append('\n'); }
+        r.text = sb.toString().trim();
+        Map<String, Object> act = action("product", "See full breakdown");
+        act.put("productId", p.getId());
+        r.data.put("action", act);
+        return r;
+    }
+
+    private static Map<String, Object> action(String view, String label) {
+        Map<String, Object> a = new LinkedHashMap<>();
+        a.put("view", view);
+        a.put("label", label);
+        return a;
+    }
+
+    private static String rupees(Object v) {
+        double d = v instanceof Number ? ((Number) v).doubleValue() : 0;
+        return String.format(Locale.ENGLISH, "₹%,.0f", d);
+    }
+
+    private static String shortName(Product p) {
+        return p.getAliases().isEmpty() ? p.getName() : p.getAliases().get(0);
+    }
+
     // ===================================================================== intents
 
     private Reply greeting(User user) {
@@ -275,9 +465,13 @@ public class ShoppingAssistant {
                 + "• **Describe** a product and tell you who it's best for\n"
                 + "• Explain each store's **return, COD and warranty policies**\n"
                 + "• Show **price history** and whether now is a good time to buy\n"
-                + "• Check on your **orders**";
+                + "• Check on your **orders**\n"
+                + "• Set **price alerts** (\"alert me when the S24 drops below ₹68,000 with rating above 4.2\")\n"
+                + "• Work out the **true final price** with your cards, coupons and fees\n"
+                + "• Track **return deadlines, warranties** and your **monthly budget**";
         r.suggestions.addAll(Arrays.asList("Best earbuds under ₹5,000", "Compare iPhone 15 vs Galaxy S24",
-                "Return policy for Nike Air Max", "Should I buy the Sony XM5 now?"));
+                "Return policy for Nike Air Max", "Should I buy the Sony XM5 now?",
+                "How much of my budget is left?", "Which returns are closing soon?"));
         return r;
     }
 

@@ -25,6 +25,11 @@
     modal: null,                 // { id, detail, range, hidden:Set }
     chatStarted: false,
     chatBusy: false,
+    catalog: [],                 // product summaries (for the alert form)
+    checkout: null,              // the user's checkout profile (cards, COD, exchange)
+    budget: null,
+    rulesSig: "",
+    protSig: "",
   };
   const STORES = ["Amazon", "Flipkart", "Myntra", "Croma"];
   const VERDICT = { GREAT: "Great time to buy", GOOD: "Good price", FAIR: "Fair price", WAIT: "Wait for a drop" };
@@ -162,6 +167,9 @@
     if (view === "discover") loadDiscover();
     if (view === "shop") loadShop(true);
     if (view === "orders") { S.ordersSig = ""; S.ordersRendered = false; loadOrders(); }
+    if (view === "alerts") loadPriceAlerts(true);
+    if (view === "protection") loadProtection(true);
+    if (view === "budget") loadBudget();
   }
   $$(".nav-item[data-view]").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
 
@@ -247,6 +255,7 @@
       if (Number($("#heroSavings").dataset.current ?? -1) !== savings) countUp($("#heroSavings"), savings, "₹");
       if (Number($("#heroActive").dataset.current ?? -1) !== summary.active) countUp($("#heroActive"), summary.active);
       $("#ordersBadge").textContent = summary.active || "";
+      loadGlance();
     } catch (err) { console.error(err); }
   }
 
@@ -264,7 +273,7 @@
       e.preventDefault();
       $("#globalSearch").focus();
     }
-    if (e.key === "Escape") { closeModal("productModal"); closeModal("compareModal"); closeModal("importModal"); closeChat(); closeAlerts(); }
+    if (e.key === "Escape") { closeModal("productModal"); closeModal("compareModal"); closeModal("importModal"); closeModal("alertModal"); closeModal("budgetModal"); closeModal("protModal"); closeChat(); closeAlerts(); }
   });
   $("#categoryChips").addEventListener("click", (e) => {
     const b = e.target.closest("button");
@@ -550,6 +559,7 @@
             <div class="ai-text" id="aiText"></div>
             <div class="ai-foot">
               <button class="cmp-toggle ${inCompare ? "on" : ""}" data-compare="${p.id}">${cmpBox(inCompare)}Add to compare</button>
+              <button class="btn-ghost" data-new-alert="${p.id}">${icon("target", 15)}Set price alert</button>
               <button class="btn-ghost" data-open-chat data-prompt="Should I buy the ${esc(p.shortName)} now?">Ask the assistant</button>
             </div>
           </div>
@@ -558,6 +568,16 @@
         <div class="panel">
           <h3>Prices <span class="sub">MRP ${inr(p.mrp)} · updated live</span></h3>
           <div class="offer-list" id="offerList">${offerRows(d)}</div>
+        </div>
+
+        <div class="panel full fp-panel">
+          <h3>True final price <span class="sub">Delivery, fees, coupons, bank offers and exchange</span></h3>
+          <div id="finalPrice">
+            <div id="fpControls" class="fp-controls"><div class="skeleton" style="min-height:70px"></div></div>
+            <div id="fpSummary" class="verdict-line v-GOOD"></div>
+            <div id="fpQuotes" class="fp-quotes stagger"></div>
+            <p class="disclaimer">${icon("info", 14)}<span id="fpDisclaimer"></span></p>
+          </div>
         </div>
 
         <div class="panel full">
@@ -600,6 +620,7 @@
     });
     d.offers.forEach((o) => S.prices.set("modal|" + o.marketplace, o.totalCost));
     drawHistory();
+    loadFinalPrice(p.id);
 
     if (d.aiAvailable) {
       $("#aiText").innerHTML = '<span class="muted">Generating summary…</span>';
@@ -901,6 +922,7 @@
   }
 
   // ======================================================================= notifications
+  const ALERT_ICON = { PRICE_DROP: "trendDown", ORDER_UPDATE: "box", PRICE_TARGET: "target", BUDGET: "wallet", REMINDER: "clock" };
   const alertsPanel = $("#alertsPanel");
   function closeAlerts() { alertsPanel.classList.remove("open"); alertsPanel.setAttribute("aria-hidden", "true"); }
   $("#alertsBtn").addEventListener("click", () => {
@@ -911,6 +933,8 @@
   });
   $("#closeAlerts").addEventListener("click", closeAlerts);
   $("#alertList").addEventListener("click", (e) => {
+    const view = e.target.closest("[data-alert-view]");
+    if (view) { closeAlerts(); setView(view.dataset.alertView); return; }
     const item = e.target.closest("[data-alert-product]");
     if (item) { closeAlerts(); openProduct(item.dataset.alertProduct); }
   });
@@ -920,10 +944,12 @@
     const fresh = alerts.filter((a) => a.id > S.seenAlertId);
     if (fresh.length && S.alertsLoaded) {
       S.unread += fresh.length;
-      toast(fresh[0].title, fresh[0].type === "PRICE_DROP" ? "trendDown" : "box");
+      toast(fresh[0].title, ALERT_ICON[fresh[0].type] || "box");
       const bell = $("#alertsBtn");
       bell.classList.remove("bell-ring"); void bell.offsetWidth; bell.classList.add("bell-ring");
       if (fresh.some((a) => a.type === "ORDER_UPDATE") && S.view === "orders") loadOrders();
+      if (fresh.some((a) => a.type === "PRICE_TARGET")) { loadGlance(); if (S.view === "alerts") loadPriceAlerts(true); }
+      if (fresh.some((a) => a.type === "BUDGET") && S.view === "budget") loadBudget();
     }
     if (alerts.length) S.seenAlertId = Math.max(S.seenAlertId, alerts[0].id);
     S.alertsLoaded = true;
@@ -931,10 +957,10 @@
     count.textContent = S.unread;
     count.classList.toggle("hidden", S.unread === 0);
     $("#alertList").innerHTML = alerts.length ? alerts.map((a) => `
-      <div class="alert-item" ${a.productId ? `data-alert-product="${a.productId}"` : ""}>
-        <div class="ic-wrap">${icon(a.type === "PRICE_DROP" ? "trendDown" : "box", 16)}</div>
+      <div class="alert-item" ${a.type === "BUDGET" ? 'data-alert-view="budget"' : a.type === "REMINDER" ? 'data-alert-view="protection"' : a.productId ? `data-alert-product="${a.productId}"` : ""}>
+        <div class="ic-wrap t-${a.type}">${icon(ALERT_ICON[a.type] || "box", 16)}</div>
         <div><div class="t">${esc(a.title)}</div><div class="d">${esc(a.detail)}</div><div class="time">${timeAgo(a.time)}</div></div>
-      </div>`).join("") : `<div class="empty">Price drops and order updates will appear here.</div>`;
+      </div>`).join("") : `<div class="empty">Price drops, alerts, budget warnings and return reminders will appear here.</div>`;
   }
 
   // ======================================================================= assistant
@@ -1017,6 +1043,11 @@
           band: saleBand(ins.best, ins), height: 110, compact: true, tooltip: true });
       });
     }
+    if (r.action) {
+      html += r.action.view === "product"
+        ? `<button class="chat-action" data-open="${esc(r.action.productId)}">${esc(r.action.label)}</button>`
+        : `<button class="chat-action" data-goto="${esc(r.action.view)}">${esc(r.action.label)}</button>`;
+    }
     if (r.orders && r.orders.length) {
       html += `<div class="mini-cards">${r.orders.map((o) => `
         <div class="mini-card"><span class="mc-top">${pIcon(o.productId, 16)}<strong>${esc(o.productName)}</strong></span>
@@ -1061,6 +1092,467 @@
     }
   }
 
+  // ======================================================================= money tools (shared)
+  const CAT_ORDER = ["Electronics", "Fashion", "Home & Kitchen", "Beauty", "Groceries", "Health", "Other"];
+  const catColor = (name) => `var(--cat-${Math.max(0, CAT_ORDER.indexOf(name)) + 1})`;
+  const LEVEL_LABEL = { OK: "On track", WATCH: "Past 70%", WARNING: "Past 90%", OVER: "Over budget", NO_BUDGET: "No budget" };
+  const pct = (n) => Math.max(0, Math.min(100, n));
+
+  document.addEventListener("click", (e) => {
+    const go = e.target.closest("[data-goto]");
+    if (go) { closeChat && window.innerWidth < 900 && closeChat(); setView(go.dataset.goto); }
+    const na = e.target.closest("[data-new-alert]");
+    if (na) openAlertForm(na.dataset.newAlert || null);
+  });
+
+  /** Overview strip: budget, alerts and return deadlines at a glance. */
+  async function loadGlance() {
+    try {
+      const g = await api("/api/glance");
+      const b = g.budget;
+      if (b.level === "NO_BUDGET") {
+        $("#gBudget").textContent = inr(b.spent) + " spent";
+        $("#gBudgetSub").textContent = "No monthly budget set";
+        $("#gBudgetBar").style.width = "0";
+      } else {
+        $("#gBudget").textContent = b.percent + "% used";
+        $("#gBudgetSub").textContent = b.remaining >= 0 ? `${inr(b.remaining)} left of ${inr(b.budget)}` : `${inr(-b.remaining)} over ${inr(b.budget)}`;
+        const bar = $("#gBudgetBar");
+        bar.style.width = pct(b.percent) + "%";
+        bar.className = "lv-" + b.level;
+      }
+      $("#gAlerts").textContent = g.alerts.triggered ? `${g.alerts.triggered} target${g.alerts.triggered > 1 ? "s" : ""} reached` : `${g.alerts.watching} watching`;
+      $("#gAlertsSub").textContent = g.alerts.triggered ? `${g.alerts.watching} more still watching` : "We'll tell you when to buy";
+      const p = g.protection;
+      $("#gProt").textContent = p.returnsClosingSoon ? `${p.returnsClosingSoon} return${p.returnsClosingSoon > 1 ? "s" : ""} closing` : `${p.activeWarranties} under warranty`;
+      $("#gProtSub").textContent = p.warrantiesExpiringSoon ? `${p.warrantiesExpiringSoon} warranty expiring within 30 days` : `${p.documentCount} document${p.documentCount === 1 ? "" : "s"} stored`;
+      $("#alertsBadge").textContent = g.alerts.triggered || "";
+      $("#protBadge").textContent = p.returnsClosingSoon || "";
+    } catch (err) { console.error(err); }
+  }
+
+  // ======================================================================= price alerts
+  const ADVICE = { BUY_NOW: ["Buy now", "good"], CLOSE: ["Almost there", "accent"], ADJUST_TARGET: ["Target may be too low", "warn"], WAIT: ["Keep waiting", "muted"] };
+
+  function ruleCard(v, i) {
+    const p = v.product.product;
+    const hit = v.status === "TRIGGERED";
+    const [advLabel, advTone] = ADVICE[v.advice] || ["", "muted"];
+    return `
+      <article class="card rule-card ${hit ? "hit" : ""}" style="--i:${i}">
+        <div class="rule-top">
+          <div class="p-icon">${pIcon(p.kind)}</div>
+          <div class="rule-title">
+            <h3>${esc(p.shortName)}</h3>
+            <div class="sub">${hit ? `Reached ${inr(v.triggeredPrice)} at ${esc(v.triggeredStore)} · ${timeAgo(v.triggeredAt)}` : `Watching since ${fmtDate(v.createdAt)}`}</div>
+          </div>
+          <span class="rule-status ${hit ? "hit" : ""}">${icon(hit ? "check" : "clock", 13)}${hit ? "Target reached" : "Watching"}</span>
+        </div>
+        <div class="rule-prices">
+          <div><small>Target</small><strong>${inr(v.targetPrice)}</strong></div>
+          <div><small>Best match now</small><strong class="price">${v.currentPrice ? inr(v.currentPrice) : "—"}</strong><small>${esc(v.currentStore || "No store matches")}</small></div>
+          <div><small>${v.gap > 0 ? "Still to drop" : "Below target by"}</small><strong class="${v.gap > 0 ? "" : "good-text"}">${v.gap > 0 ? inr(v.gap) : inr(Math.max(0, v.targetPrice - v.currentPrice))}</strong></div>
+        </div>
+        <div class="meter"><i style="width:${v.progress}%" class="${hit || v.progress >= 100 ? "lv-done" : ""}"></i></div>
+        <div class="conds">${v.conditions.map((c) => `<span class="cond ${c.met ? "met" : ""}" title="${esc(c.detail)}">${icon(c.met ? "check" : "close", 11)}${esc(c.label)}</span>`).join("")}</div>
+        <div class="advice tone-${advTone}"><strong>${advLabel}</strong><span>${esc(String(v.adviceText).replace(/^(Buy now|Worth waiting|Keep waiting)[:,]\s*/i, (m) => m.toLowerCase().startsWith("worth") ? "" : ""))}</span></div>
+        <div class="rule-actions">
+          <button class="btn-ghost small" data-open="${p.id}">View prices</button>
+          ${hit ? `<button class="btn-ghost small" data-rearm="${v.id}">${icon("refresh", 14)}Watch again</button>` : ""}
+          <button class="icon-btn small" data-del-rule="${v.id}" title="Delete alert" aria-label="Delete alert">${icon("trash", 15)}</button>
+        </div>
+      </article>`;
+  }
+
+  async function loadPriceAlerts(full = true) {
+    try {
+      const rules = await api("/api/price-alerts");
+      const hit = rules.filter((r) => r.status === "TRIGGERED").length;
+      const watching = rules.length - hit;
+      const closest = rules.filter((r) => r.status !== "TRIGGERED").sort((a, b) => b.progress - a.progress)[0];
+      const stats = [["Watching", watching], ["Targets reached", hit], ["Closest to target", closest ? closest.progress + "%" : "—"]];
+      $("#alertStats").innerHTML = stats.map(([l, v]) => `<div class="metric"><span class="m-label">${l}</span><span class="m-value">${v}</span></div>`).join("")
+        + `<div class="metric"><span class="m-label">Closest product</span><span class="m-value small">${closest ? esc(closest.product.product.shortName) : "—"}</span></div>`;
+      const sig = JSON.stringify(rules.map((r) => [r.id, r.status, r.currentPrice, r.currentStore]));
+      if (!full && sig === S.rulesSig) return;
+      S.rulesSig = sig;
+      const list = $("#ruleList");
+      list.classList.toggle("stagger", full);
+      list.innerHTML = rules.length ? rules.map(ruleCard).join("")
+        : `<div class="empty">${icon("target", 26)}<p>No price alerts yet. Pick a product and the price you'd pay.</p><button class="btn-primary small" data-new-alert>Create your first alert</button></div>`;
+    } catch (err) { console.error(err); }
+  }
+
+  $("#ruleList").addEventListener("click", async (e) => {
+    const re = e.target.closest("[data-rearm]");
+    const del = e.target.closest("[data-del-rule]");
+    try {
+      if (re) { await post(`/api/price-alerts/${re.dataset.rearm}/rearm`); toast("Watching again", "refresh"); }
+      if (del) { await post(`/api/price-alerts/${del.dataset.delRule}/delete`); toast("Alert deleted", "trash"); }
+      if (re || del) { loadPriceAlerts(true); loadGlance(); }
+    } catch (err) { toast(err.message, "info"); }
+  });
+
+  function openAlertForm(productId) {
+    const sel = $("#afProduct");
+    sel.innerHTML = S.catalog.map((c) => `<option value="${c.product.id}">${esc(c.product.name)}</option>`).join("");
+    if (productId) sel.value = productId;
+    $("#afStores").innerHTML = STORES.map((s) => `<button type="button" class="chip-toggle" data-store="${s}"><span class="dot-store s-${s}"></span>${s}</button>`).join("");
+    $("#afRating").value = "";
+    $("#afStock").checked = true;
+    syncAlertHint(true);
+    openModal("alertModal");
+    setTimeout(() => $("#afTarget").focus(), 150);
+  }
+  function syncAlertHint(setTarget) {
+    const c = S.catalog.find((x) => x.product.id === $("#afProduct").value);
+    if (!c) return;
+    $("#afHint").innerHTML = `${icon("info", 13)}Best price now: <strong>${inr(c.bestPrice)}</strong> at ${c.bestMarketplace} · rating ${c.rating.toFixed(1)}`;
+    if (setTarget) $("#afTarget").value = Math.round(c.bestPrice * 0.93 / 100) * 100;
+  }
+  $("#afProduct").addEventListener("change", () => syncAlertHint(true));
+  $("#afStores").addEventListener("click", (e) => { const b = e.target.closest(".chip-toggle"); if (b) b.classList.toggle("on"); });
+  $("#alertForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      const v = await post("/api/price-alerts", {
+        productId: $("#afProduct").value,
+        targetPrice: Number($("#afTarget").value),
+        minRating: $("#afRating").value,
+        stores: $$("#afStores .chip-toggle.on").map((b) => b.dataset.store),
+        inStockOnly: $("#afStock").checked,
+      });
+      closeModal("alertModal");
+      toast(v.status === "TRIGGERED" ? "Target already reached. Check the alert." : "Alert created. We'll watch every store.", "target");
+      if (S.view === "alerts") loadPriceAlerts(true); else setView("alerts");
+      loadGlance();
+    } catch (err) { toast(err.message, "info"); }
+  });
+
+  // ======================================================================= returns & warranty
+  S.pfilter = "all";
+  const RETURN_TEXT = { CLOSING_SOON: "Closing soon", OPEN: "Return open", CLOSED: "Return closed", NONE: "Not returnable", PENDING: "Starts on delivery" };
+  const WARRANTY_TEXT = { ACTIVE: "Active", EXPIRING_SOON: "Expiring soon", EXPIRED: "Expired", NONE: "No warranty", PENDING: "Starts on delivery" };
+  const urgency = (it) => (it.returnStatus === "CLOSING_SOON" ? 0 : it.warrantyStatus === "EXPIRING_SOON" ? 1 : it.returnStatus === "OPEN" ? 2 : it.returnStatus === "PENDING" ? 3 : it.warrantyStatus === "ACTIVE" ? 4 : 5);
+
+  function daysText(n) {
+    if (n == null) return "";
+    if (n < 0) return `${-n} day${n === -1 ? "" : "s"} ago`;
+    if (n === 0) return "today";
+    return `${n} day${n === 1 ? "" : "s"} left`;
+  }
+
+  function protCard(it, i) {
+    const pid = it.productId || "";
+    const ret = it.returnStatus, war = it.warrantyStatus;
+    const retLine = ret === "PENDING" ? `${it.returnDays}-day window starts on delivery`
+      : ret === "NONE" ? "This item can't be returned" : `${ret === "CLOSED" ? "Closed" : "Return by"} ${fmtDate(it.returnBy)} · ${daysText(it.returnDaysLeft)}`;
+    const warLine = war === "PENDING" ? `${it.warrantyMonths} months from delivery` : war === "NONE" ? "No manufacturer warranty recorded"
+      : `${war === "EXPIRED" ? "Ended" : "Until"} ${fmtDate(it.warrantyUntil)} · ${daysText(it.warrantyDaysLeft)}`;
+    const docs = it.documents.map((d) => `
+      <span class="doc-chip"><a href="/api/documents/${d.id}" target="_blank" rel="noopener">${icon(d.kind === "INVOICE" ? "receipt" : "file", 13)}${esc(d.fileName)}</a><small>${d.kind === "INVOICE" ? "Invoice" : d.kind === "WARRANTY" ? "Warranty" : "File"} · ${d.sizeKb} KB</small><button data-del-doc="${d.id}" aria-label="Delete ${esc(d.fileName)}">${icon("close", 11)}</button></span>`).join("");
+    return `
+      <article class="card prot-card" style="--i:${i}">
+        <div class="prot-head">
+          <div class="p-icon">${pIcon(pid || "box", 20)}</div>
+          <div class="prot-title">
+            <h3>${esc(it.productName)}</h3>
+            <div class="sub"><span class="store-name s-${esc(it.store)}"><span class="dot-store"></span>${esc(it.store)}</span> · ${inr(it.amount)} · ${it.delivered ? "Delivered " + fmtDate(it.deliveredOn) : "Not delivered yet"}${it.source && it.source !== "Marketplace" ? " · imported" : ""}</div>
+          </div>
+          <button class="icon-btn small" data-edit-prot="${esc(it.orderId)}" data-r="${it.returnDays}" data-w="${it.warrantyMonths}" data-name="${esc(it.productName)}" title="Change periods" aria-label="Change return and warranty periods">${icon("edit", 15)}</button>
+        </div>
+        <div class="prot-meters">
+          <div class="pm-item rs-${ret}">
+            <div class="pm-label"><span>${icon("refresh", 13)}Return</span><span class="pm-state">${RETURN_TEXT[ret]}</span></div>
+            <div class="meter"><i style="width:${ret === "PENDING" || ret === "NONE" ? 0 : it.returnProgress}%"></i></div>
+            <small>${retLine}</small>
+          </div>
+          <div class="pm-item ws-${war}">
+            <div class="pm-label"><span>${icon("shield", 13)}Warranty</span><span class="pm-state">${WARRANTY_TEXT[war]}</span></div>
+            <div class="meter"><i style="width:${war === "PENDING" || war === "NONE" ? 0 : it.warrantyProgress}%"></i></div>
+            <small>${warLine}</small>
+          </div>
+        </div>
+        <div class="docs">
+          ${docs || '<span class="muted small-text">No invoice or warranty card stored</span>'}
+          <span class="doc-add">
+            <button class="btn-ghost small" data-upload="${esc(it.orderId)}" data-kind="INVOICE">${icon("upload", 14)}Invoice</button>
+            <button class="btn-ghost small" data-upload="${esc(it.orderId)}" data-kind="WARRANTY">${icon("upload", 14)}Warranty card</button>
+          </span>
+        </div>
+      </article>`;
+  }
+
+  async function loadProtection(full = true) {
+    try {
+      const o = await api("/api/protection");
+      const stats = [["Returns closing in 2 days", o.returnsClosingSoon], ["Warranties ending in 30 days", o.warrantiesExpiringSoon],
+        ["Active warranties", o.activeWarranties], ["Documents stored", o.documentCount]];
+      $("#protStats").innerHTML = stats.map(([l, v], i) => `<div class="metric ${i < 2 && v > 0 ? "attn" : ""}"><span class="m-label">${l}</span><span class="m-value">${v}</span></div>`).join("");
+      const f = S.pfilter;
+      const items = o.items.filter((it) =>
+        f === "returns" ? ["OPEN", "CLOSING_SOON"].includes(it.returnStatus)
+          : f === "warranty" ? ["ACTIVE", "EXPIRING_SOON"].includes(it.warrantyStatus)
+            : f === "expiring" ? it.returnStatus === "CLOSING_SOON" || it.warrantyStatus === "EXPIRING_SOON" : true)
+        .sort((a, b) => urgency(a) - urgency(b));
+      const sig = JSON.stringify([f, items.map((it) => [it.orderId, it.returnStatus, it.warrantyStatus, it.documents.length, it.returnDays, it.warrantyMonths])]);
+      if (!full && sig === S.protSig) return;
+      S.protSig = sig;
+      const list = $("#protList");
+      list.classList.toggle("stagger", full);
+      list.innerHTML = items.length ? items.map(protCard).join("") : `<div class="empty">Nothing here right now.</div>`;
+    } catch (err) { console.error(err); }
+  }
+
+  $("#protSeg").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-pfilter]");
+    if (!b) return;
+    $$("#protSeg button").forEach((x) => x.classList.toggle("active", x === b));
+    S.pfilter = b.dataset.pfilter;
+    loadProtection(true);
+  });
+
+  let uploadTarget = null;
+  $("#protList").addEventListener("click", async (e) => {
+    const up = e.target.closest("[data-upload]");
+    const del = e.target.closest("[data-del-doc]");
+    const ed = e.target.closest("[data-edit-prot]");
+    if (up) { uploadTarget = { orderId: up.dataset.upload, kind: up.dataset.kind }; $("#docInput").value = ""; $("#docInput").click(); }
+    if (del) {
+      try { await post(`/api/documents/${del.dataset.delDoc}/delete`); toast("Document removed", "trash"); loadProtection(true); }
+      catch (err) { toast(err.message); }
+    }
+    if (ed) {
+      S.protEdit = ed.dataset.editProt;
+      $("#protModalTitle").textContent = ed.dataset.name;
+      $("#pfReturn").value = ed.dataset.r;
+      $("#pfWarranty").value = ed.dataset.w;
+      openModal("protModal");
+    }
+  });
+
+  $("#docInput").addEventListener("change", () => {
+    const file = $("#docInput").files[0];
+    if (!file || !uploadTarget) return;
+    if (file.size > 5 * 1024 * 1024) { toast("Files can be up to 5 MB"); return; }
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        await post("/api/documents", { ...uploadTarget, fileName: file.name, mimeType: file.type || "application/octet-stream",
+          data: String(reader.result).split(",")[1] || "" });
+        toast(`${file.name} saved`, "file");
+        loadProtection(true);
+        loadGlance();
+      } catch (err) { toast(err.message); }
+    };
+    reader.readAsDataURL(file);
+  });
+
+  $("#protForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await post(`/api/protection/${encodeURIComponent(S.protEdit)}/settings`,
+        { returnDays: Number($("#pfReturn").value), warrantyMonths: Number($("#pfWarranty").value) });
+      closeModal("protModal");
+      toast("Periods updated", "check");
+      loadProtection(true);
+    } catch (err) { toast(err.message); }
+  });
+
+  // ======================================================================= budget guardian
+  function budgetHero(s) {
+    const t = s.lines[0];
+    const has = t.level !== "NO_BUDGET";
+    const marks = [70, 90, 100].map((m) => `<span class="mark" style="left:${m / 1.2}%"><i></i><small>${m}%</small></span>`).join("");
+    return `
+      <div class="bh-main">
+        <small>${esc(s.monthLabel)} · ${s.daysLeft} day${s.daysLeft === 1 ? "" : "s"} left</small>
+        <div class="bh-figure"><strong data-bh="spent">${inr(s.spent)}</strong>${has ? `<span>of ${inr(t.budget)}</span>` : "<span>spent</span>"}</div>
+        ${has ? `<span class="level-pill lv-${t.level}">${icon(t.level === "OK" ? "check" : "warn", 13)}${LEVEL_LABEL[t.level]} · ${t.percent}% used</span>` : `<span class="level-pill">No total budget yet</span>`}
+      </div>
+      ${has ? `
+      <div class="bh-bar">
+        <div class="track"><i class="lv-${t.level}" style="width:${pct(t.percent / 1.2)}%"></i><b class="proj" style="left:${pct(t.projectedPercent / 1.2)}%" title="Projected by month end: ${t.projectedPercent}%"></b>${marks}</div>
+      </div>` : ""}
+      <div class="bh-stats">
+        <div><small>Remaining capacity</small><strong class="${has && t.remaining < 0 ? "bad-text" : ""}">${has ? (t.remaining >= 0 ? inr(t.remaining) : "−" + inr(-t.remaining)) : "—"}</strong></div>
+        <div><small>Safe to spend per day</small><strong>${has ? inr(t.perDay) : "—"}</strong></div>
+        <div><small>Projected month end</small><strong>${inr(s.projected)}</strong></div>
+        <div><small>Average month</small><strong>${inr(s.averageMonth)}</strong></div>
+      </div>`;
+  }
+
+  function budgetCard(l, i) {
+    const has = l.level !== "NO_BUDGET";
+    return `
+      <div class="card budget-card" style="--i:${i}">
+        <div class="bc-top"><span class="cat-dot" style="--c:${catColor(l.name)}"></span><strong>${esc(l.name)}</strong>
+          ${has ? `<span class="level-pill sm lv-${l.level}">${l.level === "OK" ? "" : icon("warn", 11)}${LEVEL_LABEL[l.level]}</span>` : ""}</div>
+        <div class="bc-figure"><strong>${inr(l.spent)}</strong><span>${has ? "of " + inr(l.budget) : "no budget"}</span></div>
+        <div class="meter thresholds">${has ? `<i class="lv-${l.level}" style="width:${pct(l.percent)}%"></i><b style="left:70%"></b><b style="left:90%"></b>` : ""}</div>
+        <small class="muted">${has ? (l.remaining >= 0 ? `${inr(l.remaining)} left · ${inr(l.perDay)}/day` : `${inr(-l.remaining)} over`) : `<button class="link-btn" data-set-budget="${esc(l.name)}">Set a budget</button>`}</small>
+      </div>`;
+  }
+
+  /** Stacked monthly bars (one segment per category) with a total above each bar and a hover tooltip. */
+  function spendChart(history) {
+    const W = 560, H = 230, padL = 8, padB = 26, padT = 22;
+    const max = Math.max(1, ...history.map((h) => h.total));
+    const slot = (W - padL * 2) / history.length;
+    const bw = Math.min(46, slot * 0.5);
+    const y = (v) => (H - padB - padT) * (v / max);
+    let bars = "";
+    history.forEach((h, i) => {
+      const x = padL + slot * i + (slot - bw) / 2;
+      let base = H - padB;
+      const cats = CAT_ORDER.filter((c) => (h.byCategory[c] || 0) > 0);
+      const segs = cats.map((c, k) => {
+        const hgt = y(h.byCategory[c]);
+        const top = base - hgt;
+        const gap = k < cats.length - 1 ? 2 : 0;   // 2px surface gap between segments
+        const r = k === cats.length - 1 ? 4 : 0;
+        const seg = `<path d="${roundedTop(x, top, bw, Math.max(0, hgt - gap), r)}" fill="${catColor(c)}"/>`;
+        base = top;
+        return seg;
+      }).join("");
+      const tip = [`${h.label}: ${inr(h.total)}`].concat(cats.map((c) => `${c}: ${inr(h.byCategory[c])}`)).join("\n");
+      bars += `<g class="bar-g" data-tip="${esc(tip)}">
+        <rect x="${padL + slot * i}" y="0" width="${slot}" height="${H}" fill="transparent"/>
+        ${segs}
+        <text x="${x + bw / 2}" y="${H - padB - y(h.total) - 7}" text-anchor="middle" class="bar-total">${h.total ? "₹" + (h.total >= 1000 ? Math.round(h.total / 1000) + "k" : h.total) : ""}</text>
+        <text x="${x + bw / 2}" y="${H - 7}" text-anchor="middle" class="bar-label ${i === history.length - 1 ? "now" : ""}">${h.label}</text>
+      </g>`;
+    });
+    return `<div class="spend-wrap"><svg viewBox="0 0 ${W} ${H}" class="spend-svg" role="img" aria-label="Monthly spending by category">
+      <line x1="0" x2="${W}" y1="${H - padB}" y2="${H - padB}" class="axis"/>${bars}</svg><div class="chart-tip" hidden></div></div>`;
+  }
+  function roundedTop(x, y, w, h, r) {
+    r = Math.min(r, h, w / 2);
+    return `M${x},${y + h} V${y + r} Q${x},${y} ${x + r},${y} H${x + w - r} Q${x + w},${y} ${x + w},${y + r} V${y + h} Z`;
+  }
+
+  async function loadBudget() {
+    try {
+      const s = await api("/api/budget");
+      S.budget = s;
+      $("#budgetMeta").textContent = `${s.monthLabel}: spending from all your orders, including ones imported from email and SMS.`;
+      $("#budgetHero").innerHTML = budgetHero(s);
+      const lines = s.lines.slice(1).sort((a, b) => (a.level === "NO_BUDGET") - (b.level === "NO_BUDGET") || b.spent - a.spent);
+      $("#budgetGrid").innerHTML = lines.map(budgetCard).join("");
+      $("#budgetGrid").classList.add("stagger");
+      const used = CAT_ORDER.filter((c) => s.history.some((h) => (h.byCategory[c] || 0) > 0));
+      $("#spendLegend").innerHTML = used.map((c) => `<span><span class="swatch" style="--c:${catColor(c)}"></span>${esc(c)}</span>`).join("");
+      $("#spendChart").innerHTML = spendChart(s.history);
+      $("#spendTable").innerHTML = `<table class="mini-table"><thead><tr><th>Month</th>${used.map((c) => `<th>${esc(c)}</th>`).join("")}<th>Total</th></tr></thead><tbody>${
+        s.history.map((h) => `<tr><th>${h.label}</th>${used.map((c) => `<td>${inr(h.byCategory[c] || 0)}</td>`).join("")}<td><strong>${inr(h.total)}</strong></td></tr>`).join("")}</tbody></table>`;
+      $("#budgetInsights").innerHTML = s.insights.map((t) => `<li>${icon("info", 14)}<span>${esc(t)}</span></li>`).join("");
+    } catch (err) { console.error(err); }
+  }
+
+  $("#spendChart").addEventListener("mousemove", (e) => {
+    const g = e.target.closest(".bar-g");
+    const tip = $(".chart-tip", $("#spendChart"));
+    if (!tip) return;
+    if (!g) { tip.hidden = true; return; }
+    const box = $("#spendChart").getBoundingClientRect();
+    tip.innerHTML = esc(g.dataset.tip).replace(/\n/g, "<br>");
+    tip.hidden = false;
+    tip.style.left = Math.min(box.width - 170, e.clientX - box.left + 14) + "px";
+    tip.style.top = (e.clientY - box.top - 10) + "px";
+  });
+  $("#spendChart").addEventListener("mouseleave", () => { const t = $(".chart-tip", $("#spendChart")); if (t) t.hidden = true; });
+
+  function openBudgetForm(focusName) {
+    const s = S.budget;
+    if (!s) return;
+    const names = ["Total"].concat(s.categories);
+    const form = $("#budgetForm");
+    $$(".field", form).forEach((f) => f.remove());
+    form.insertAdjacentHTML("afterbegin", names.map((n) => `
+      <label class="field ${n === "Total" ? "full" : ""}"><span class="field-label">${n === "Total" ? "Total monthly budget (₹)" : esc(n) + " (₹)"}</span>
+      <input class="input" type="number" min="0" step="500" name="${esc(n)}" value="${s.budgets[n] || ""}" placeholder="No limit"></label>`).join(""));
+    openModal("budgetModal");
+    setTimeout(() => { const f = $(`input[name="${focusName || "Total"}"]`, form); if (f) f.focus(); }, 150);
+  }
+  $("#editBudgetBtn").addEventListener("click", () => openBudgetForm());
+  $("#budgetGrid").addEventListener("click", (e) => { const b = e.target.closest("[data-set-budget]"); if (b) openBudgetForm(b.dataset.setBudget); });
+  $("#budgetForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const budgets = {};
+    $$("input", e.target).forEach((i) => { budgets[i.name] = Number(i.value || 0); });
+    try {
+      await post("/api/budget", { budgets });
+      closeModal("budgetModal");
+      toast("Budgets saved", "wallet");
+      loadBudget();
+      loadGlance();
+    } catch (err) { toast(err.message); }
+  });
+
+  // ======================================================================= true final price (product modal)
+  async function loadFinalPrice(productId, profile) {
+    const box = $("#finalPrice");
+    if (!box) return;
+    try {
+      if (profile) await post("/api/checkout-profile", profile);
+      const [calc, prof] = await Promise.all([api(`/api/products/${productId}/final-price`), profile ? null : api("/api/checkout-profile")]);
+      if (!S.modal || S.modal.id !== productId || !$("#finalPrice")) return;
+      if (prof) S.checkout = prof;
+      const pr = S.checkout;
+      $("#fpControls").innerHTML = `
+        <div class="fp-row"><span class="field-label">Your cards</span>
+          <div class="chip-toggles">${pr.availableBanks.map((b) => `<button type="button" class="chip-toggle ${pr.cards.includes(b) ? "on" : ""}" data-bank="${b}">${b}</button>`).join("")}</div></div>
+        <div class="fp-row inline">
+          <label class="check"><input type="checkbox" id="fpCod" ${pr.cashOnDelivery ? "checked" : ""}> Cash on delivery</label>
+          <label class="check"><input type="checkbox" id="fpCoupons" ${pr.useCoupons ? "checked" : ""}> Apply coupons</label>
+          <label class="fp-exchange">Old device value ₹<input id="fpExchange" class="input" type="number" min="0" step="500" value="${pr.exchangeValue || ""}" placeholder="0"></label>
+        </div>`;
+      const best = calc.quotes[0];
+      const worst = calc.quotes[calc.quotes.length - 1];
+      $("#fpQuotes").innerHTML = calc.quotes.length ? calc.quotes.map((q, i) => `
+        <div class="fp-quote ${i === 0 ? "best" : ""}" style="--i:${i}">
+          <div class="fpq-head">
+            <span class="store-name s-${q.store}"><span class="dot-store"></span>${q.store}</span>${i === 0 ? '<span class="best-tag">Cheapest final price</span>' : ""}
+            <span class="fpq-final">${inr(q.finalPrice)}</span>
+          </div>
+          <div class="fpq-lines">
+            <div class="ln"><span>Listed price</span><span>${inr(q.listedPrice)}</span></div>
+            ${q.lines.map((l) => `<div class="ln ${l.amount < 0 ? "neg" : ""}"><span>${esc(l.label)}</span><span>${l.amount < 0 ? "−" + inr(-l.amount) : "+" + inr(l.amount)}</span></div>`).join("")}
+          </div>
+          <div class="fpq-foot">${q.totalSavings > 0 ? `You save ${inr(q.totalSavings)}` : "No offers apply"}${q.cashbackLater > 0 ? ` · ${inr(q.cashbackLater)} arrives as cashback` : ""} · ${q.deliveryDays}-day delivery</div>
+        </div>`).join("") : `<div class="empty">Out of stock everywhere.</div>`;
+      $("#fpSummary").innerHTML = calc.summary ? `${icon("info", 15)}<span>${esc(calc.summary)}${worst && best && worst !== best ? ` Picking ${best.store} over ${worst.store} saves ${inr(calc.savingsVsWorst)}.` : ""}</span>` : "";
+      $("#fpDisclaimer").textContent = calc.disclaimer;
+    } catch (err) { console.error(err); }
+  }
+
+  function readCheckoutForm() {
+    return {
+      cards: $$("#fpControls [data-bank].on").map((b) => b.dataset.bank),
+      cashOnDelivery: $("#fpCod").checked,
+      useCoupons: $("#fpCoupons").checked,
+      exchangeValue: Number($("#fpExchange").value || 0),
+    };
+  }
+  let fpTimer;
+  document.addEventListener("click", (e) => {
+    const bank = e.target.closest("#fpControls [data-bank]");
+    if (!bank || !S.modal) return;
+    bank.classList.toggle("on");
+    const prof = readCheckoutForm();
+    S.checkout = { ...S.checkout, ...prof };
+    loadFinalPrice(S.modal.id, prof);
+  });
+  document.addEventListener("change", (e) => {
+    if (!e.target.closest("#fpControls") || !S.modal) return;
+    clearTimeout(fpTimer);
+    fpTimer = setTimeout(() => {
+      const prof = readCheckoutForm();
+      S.checkout = { ...S.checkout, ...prof };
+      loadFinalPrice(S.modal.id, prof);
+    }, 250);
+  });
+
   // ======================================================================= session & polling
   $("#logoutBtn").addEventListener("click", async () => {
     try { await post("/api/auth/logout"); } catch (e) { /* ignore */ }
@@ -1071,7 +1563,9 @@
     try {
       await Promise.all([
         loadAlerts(),
-        S.view === "shop" ? loadShop(false) : S.view === "orders" ? loadOrders() : loadDiscover(true),
+        S.view === "shop" ? loadShop(false) : S.view === "orders" ? loadOrders()
+          : S.view === "alerts" ? loadPriceAlerts(false) : S.view === "protection" ? loadProtection(false)
+            : S.view === "budget" ? Promise.resolve() : loadDiscover(true),
         refreshModalPrices(),
       ]);
       $("#lastSync").textContent = new Date().toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", second: "2-digit" });
@@ -1093,7 +1587,8 @@
     $("#userAvatar").textContent = S.user.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
     $("#aiEngine").textContent = S.user.aiEngine;
     try {
-      (await api("/api/products")).forEach((s) => { S.kinds[s.product.id] = s.product.kind; });
+      S.catalog = await api("/api/products");
+      S.catalog.forEach((s) => { S.kinds[s.product.id] = s.product.kind; });
     } catch (e) { /* icons fall back to a generic box */ }
     setupOverview();
     moveGlider();

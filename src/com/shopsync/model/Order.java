@@ -112,6 +112,12 @@ public class Order implements JsonSerializable {
 
     public synchronized OrderStatus getStatus() { return status; }
 
+    /** When the order was delivered, or null if it hasn't been. */
+    public synchronized LocalDateTime getDeliveredAt() {
+        for (TrackingEvent e : events) if (e.getStatus() == OrderStatus.DELIVERED) return e.getTime();
+        return null;
+    }
+
     public synchronized LocalDateTime getLastUpdate() {
         return events.get(events.size() - 1).getTime();
     }

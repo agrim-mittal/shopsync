@@ -23,6 +23,10 @@
       <button class="nav-item" data-view="shop"><span data-icon="bag"></span><span>Compare prices</span></button>
       <button class="nav-item" data-view="orders"><span data-icon="box"></span><span>Orders</span><span class="nav-badge" id="ordersBadge"></span></button>
       <button class="nav-item" data-open-chat><span data-icon="chat"></span><span>Assistant</span></button>
+      <div class="nav-label">Money tools</div>
+      <button class="nav-item" data-view="alerts"><span data-icon="target"></span><span>Price alerts</span><span class="nav-badge" id="alertsBadge"></span></button>
+      <button class="nav-item" data-view="protection"><span data-icon="shield"></span><span>Returns &amp; warranty</span><span class="nav-badge warn" id="protBadge"></span></button>
+      <button class="nav-item" data-view="budget"><span data-icon="wallet"></span><span>Budget</span></button>
     </nav>
 
     <div class="side-card">
@@ -79,6 +83,12 @@
           <div class="metric"><span class="m-label">Orders in progress</span><span class="m-value" id="heroActive">0</span></div>
           <div class="metric"><span class="m-label">Savings on today's drops</span><span class="m-value" id="heroSavings">₹0</span></div>
         </div>
+      </div>
+
+      <div class="glance stagger" id="glance">
+        <button class="glance-card" data-goto="budget"><span class="g-icon"><span data-icon="wallet" data-size="18"></span></span><span class="g-body"><small>Budget this month</small><strong id="gBudget">—</strong><span class="g-sub" id="gBudgetSub"></span><span class="g-meter"><i id="gBudgetBar"></i></span></span></button>
+        <button class="glance-card" data-goto="alerts"><span class="g-icon"><span data-icon="target" data-size="18"></span></span><span class="g-body"><small>Price alerts</small><strong id="gAlerts">—</strong><span class="g-sub" id="gAlertsSub"></span></span></button>
+        <button class="glance-card" data-goto="protection"><span class="g-icon"><span data-icon="shield" data-size="18"></span></span><span class="g-body"><small>Returns &amp; warranty</small><strong id="gProt">—</strong><span class="g-sub" id="gProtSub"></span></span></button>
       </div>
 
       <div class="section-head reveal">
@@ -154,6 +164,65 @@
       <div class="order-list" id="orderList"></div>
     </section>
 
+
+    <!-- ------------------------------ PRICE ALERTS ------------------------------ -->
+    <section class="view" id="view-alerts">
+      <div class="page-head">
+        <div>
+          <h1>Price alerts</h1>
+          <p>Set a target and extra conditions. ShopSync watches every store and tells you when to buy.</p>
+        </div>
+        <button class="btn-primary" data-new-alert><span data-icon="plus" data-size="16"></span>New alert</button>
+      </div>
+      <div class="metrics" id="alertStats"></div>
+      <div class="rule-list" id="ruleList"></div>
+    </section>
+
+    <!-- ------------------------------ RETURNS & WARRANTY ------------------------------ -->
+    <section class="view" id="view-protection">
+      <div class="page-head">
+        <div>
+          <h1>Returns &amp; warranty</h1>
+          <p>Return deadlines start counting from delivery. Keep invoices and warranty cards next to each order.</p>
+        </div>
+      </div>
+      <div class="metrics" id="protStats"></div>
+      <div class="order-toolbar">
+        <div class="seg" id="protSeg">
+          <button class="active" data-pfilter="all">All</button>
+          <button data-pfilter="returns">Return open</button>
+          <button data-pfilter="warranty">Under warranty</button>
+          <button data-pfilter="expiring">Expiring soon</button>
+        </div>
+      </div>
+      <div class="prot-list" id="protList"></div>
+    </section>
+
+    <!-- ------------------------------ BUDGET ------------------------------ -->
+    <section class="view" id="view-budget">
+      <div class="page-head">
+        <div>
+          <h1>Budget</h1>
+          <p id="budgetMeta">Spending from all your orders, including imported ones.</p>
+        </div>
+        <button class="btn-primary" id="editBudgetBtn"><span data-icon="edit" data-size="16"></span>Edit budgets</button>
+      </div>
+      <div class="budget-hero" id="budgetHero"></div>
+      <div class="budget-grid" id="budgetGrid"></div>
+      <div class="budget-lower">
+        <div class="panel">
+          <h3>Monthly spending <span class="sub">Last 6 months, by category</span></h3>
+          <div class="legend static" id="spendLegend"></div>
+          <div id="spendChart"></div>
+          <details class="table-view"><summary>View as table</summary><div id="spendTable"></div></details>
+        </div>
+        <div class="panel">
+          <h3>Insights</h3>
+          <ul class="insights" id="budgetInsights"></ul>
+        </div>
+      </div>
+    </section>
+
     <footer class="app-footer">ShopSync · Marketplace prices, orders and policies are simulated for demonstration.</footer>
   </div>
 
@@ -162,6 +231,9 @@
     <button class="nav-item active" data-view="discover"><span data-icon="home"></span>Overview</button>
     <button class="nav-item" data-view="shop"><span data-icon="bag"></span>Compare</button>
     <button class="nav-item" data-view="orders"><span data-icon="box"></span>Orders</button>
+    <button class="nav-item" data-view="alerts"><span data-icon="target"></span>Alerts</button>
+    <button class="nav-item" data-view="protection"><span data-icon="shield"></span>Returns</button>
+    <button class="nav-item" data-view="budget"><span data-icon="wallet"></span>Budget</button>
     <button class="nav-item" data-open-chat><span data-icon="chat"></span>Assistant</button>
   </nav>
 
@@ -274,6 +346,49 @@
       </div>
     </div>
   </div>
+
+  <div class="modal" id="alertModal" aria-hidden="true">
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card form-card" role="dialog" aria-modal="true" aria-labelledby="alertModalTitle">
+      <button class="icon-btn modal-close" data-close aria-label="Close"><span data-icon="close" data-size="16"></span></button>
+      <h2 class="cmp-title" id="alertModalTitle">New price alert</h2>
+      <form id="alertForm" class="form-grid">
+        <label class="field full"><span class="field-label">Product</span><select id="afProduct" class="input"></select></label>
+        <p class="hint full" id="afHint"></p>
+        <label class="field"><span class="field-label">Alert me at or below (₹)</span><input id="afTarget" class="input" type="number" min="1" step="1" required></label>
+        <label class="field"><span class="field-label">Minimum rating</span>
+          <select id="afRating" class="input"><option value="">Any rating</option><option>3.5</option><option>4.0</option><option>4.2</option><option>4.5</option></select></label>
+        <div class="field full"><span class="field-label">Stores (none selected = any store)</span><div class="chip-toggles" id="afStores"></div></div>
+        <label class="check full"><input type="checkbox" id="afStock" checked> Only when it's in stock</label>
+        <div class="form-actions full"><button type="button" class="btn-ghost" data-close>Cancel</button><button class="btn-primary" type="submit">Create alert</button></div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal" id="budgetModal" aria-hidden="true">
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card form-card" role="dialog" aria-modal="true">
+      <button class="icon-btn modal-close" data-close aria-label="Close"><span data-icon="close" data-size="16"></span></button>
+      <h2 class="cmp-title">Monthly budgets</h2>
+      <p class="muted" style="margin:0 0 14px">Leave a field empty to remove that budget. You'll be warned at 70%, 90% and 100%.</p>
+      <form id="budgetForm" class="form-grid"><div class="form-actions full"><button type="button" class="btn-ghost" data-close>Cancel</button><button class="btn-primary" type="submit">Save budgets</button></div></form>
+    </div>
+  </div>
+
+  <div class="modal" id="protModal" aria-hidden="true">
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card form-card" role="dialog" aria-modal="true">
+      <button class="icon-btn modal-close" data-close aria-label="Close"><span data-icon="close" data-size="16"></span></button>
+      <h2 class="cmp-title" id="protModalTitle">Return &amp; warranty period</h2>
+      <form id="protForm" class="form-grid">
+        <label class="field"><span class="field-label">Return window (days)</span><input id="pfReturn" class="input" type="number" min="0" max="365" required></label>
+        <label class="field"><span class="field-label">Warranty (months)</span><input id="pfWarranty" class="input" type="number" min="0" max="120" required></label>
+        <p class="hint full">Defaults come from the store's policy and the product type. Change them if your invoice says otherwise.</p>
+        <div class="form-actions full"><button type="button" class="btn-ghost" data-close>Cancel</button><button class="btn-primary" type="submit">Save</button></div>
+      </form>
+    </div>
+  </div>
+  <input type="file" id="docInput" accept="application/pdf,image/*" hidden>
 
   <!-- ============================== NOTIFICATIONS ============================== -->
   <aside class="drawer" id="alertsPanel" aria-hidden="true">

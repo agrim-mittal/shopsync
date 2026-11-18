@@ -16,7 +16,13 @@ import com.shopsync.marketplace.FlipkartMarketplace;
 import com.shopsync.marketplace.Marketplace;
 import com.shopsync.marketplace.MyntraMarketplace;
 import com.shopsync.model.Product;
+import com.shopsync.alerts.PriceAlertService;
+import com.shopsync.budget.BudgetService;
+import com.shopsync.pricing.CheckoutProfile;
+import com.shopsync.pricing.FinalPriceService;
+import com.shopsync.protection.ProtectionService;
 import com.shopsync.server.WebServer;
+import com.shopsync.service.SmartFeatures;
 import com.shopsync.service.LiveUpdateEngine;
 import com.shopsync.service.OrderTrackingService;
 import com.shopsync.service.PriceComparisonService;
@@ -61,17 +67,32 @@ public class Main {
         UserStore users = new UserStore();
         SessionManager sessions = new SessionManager();
         User demo = users.register("Agrim Mittal", DEMO_EMAIL, DEMO_PASSWORD);
-        SampleOrders.loadFor(demo.getId(), marketplaces);
+        ImportedOrderStore importedOrders = new ImportedOrderStore();
+        SampleOrders.loadFor(demo.getId(), marketplaces, importedOrders);
 
         // 3. Services, including the AI assistant (uses Gemini if GEMINI_API_KEY is set).
         LlmClient llm = GeminiClient.fromEnvironment();
         PriceComparisonService priceService = new PriceComparisonService(marketplaces.values());
-        ImportedOrderStore importedOrders = new ImportedOrderStore();
         OrderTrackingService orderService = new OrderTrackingService(marketplaces.values(), importedOrders);
         ProductService productService = new ProductService(catalog, marketplaces.values(), orderService, llm);
         ShoppingAssistant assistant = new ShoppingAssistant(productService, orderService, llm);
         LiveUpdateEngine liveEngine = new LiveUpdateEngine(marketplaces.values());
         InboxService inbox = new InboxService(new MessageParser(llm), importedOrders, orderService, liveEngine);
+        // 4. Smart money features: price alerts, returns & warranty, true final price, budgets.
+        SmartFeatures smart = new SmartFeatures(
+                new PriceAlertService(productService, liveEngine),
+                new ProtectionService(orderService, productService, liveEngine),
+                new FinalPriceService(productService),
+                new BudgetService(orderService, productService, liveEngine));
+        assistant.connect(smart);
+        seedDemo(demo, smart);
+        liveEngine.every(4, smart.alerts::checkAll);
+        liveEngine.every(10, () -> {
+            List<String> ids = new java.util.ArrayList<>();
+            for (User u : users.allUsers()) ids.add(u.getId());
+            smart.budget.checkWarnings(ids);
+            smart.protection.checkReminders(ids);
+        });
         liveEngine.start(4, 20);   // prices every 4 s; every 20 s one order (idle 3+ min) moves a stage
 
         // 4. Web server.
@@ -81,8 +102,8 @@ public class Main {
             System.exit(1);
         }
         WebServer server = new WebServer(port, webRoot, users, sessions, priceService, orderService,
-                productService, assistant, liveEngine, inbox,
-                newUser -> SampleOrders.loadFor(newUser.getId(), marketplaces));
+                productService, assistant, liveEngine, inbox, smart,
+                newUser -> SampleOrders.loadFor(newUser.getId(), marketplaces, importedOrders));
         server.start();
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -98,6 +119,21 @@ public class Main {
         System.out.println("  AI engine:   " + assistant.poweredBy());
         System.out.println("  Press Ctrl+C to stop");
         System.out.println("==================================================");
+    }
+
+    /** Demo account: a few budgets, price alerts and a checkout profile so every feature has data. */
+    private static void seedDemo(User demo, SmartFeatures smart) {
+        Map<String, Double> budgets = new LinkedHashMap<>();
+        budgets.put(BudgetService.TOTAL, 110000.0);
+        budgets.put("Electronics", 69000.0);
+        budgets.put("Fashion", 12000.0);
+        budgets.put("Home & Kitchen", 20000.0);
+        budgets.put("Groceries", 5000.0);
+        smart.budget.setBudgets(demo.getId(), budgets);
+        smart.finalPrice.saveProfile(demo.getId(), new CheckoutProfile(java.util.Arrays.asList("HDFC", "Axis"), false, 0, true));
+        smart.alerts.create(demo.getId(), "P02", 68000, 4.2, null, true);
+        smart.alerts.create(demo.getId(), "P01", 60000, null, java.util.Arrays.asList("Amazon", "Flipkart"), false);
+        smart.alerts.create(demo.getId(), "P16", 7600, 4.0, null, true);
     }
 
     private static void register(Map<String, Marketplace> map, Marketplace m) {

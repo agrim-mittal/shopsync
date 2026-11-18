@@ -102,7 +102,47 @@ type and add `GEMINI_API_KEY` under Environment.)
 - "Return policy for Nike Air Max" → policy table across stores
 - "Should I buy the Sony XM5 now?" → price-history chart + verdict
 - "Tell me about the air fryer", "Gift ideas under 2k", "Where are my orders?", "Similar to Levi's jeans"
+- "Alert me when the S24 is below 65k with rating above 4.2", "How much of my budget is left?",
+  "Which returns are closing soon?", "Final price of iPhone 15 with my cards"
 - Follow-ups work: "what about **its** return policy?"
+
+**Smart Price Alert & Auto-Buying Advisor** (sidebar → *Price alerts*, or *Set price alert* on any product)
+- Set a target price and optional extra conditions, which must **all** hold: minimum rating (e.g. above 4.2),
+  only certain stores, in stock only. Example: *price ≤ ₹20,000 AND rating ≥ 4.2*.
+- A background job checks every rule every few seconds against live prices; when one fires you get a
+  notification and the card turns green ("Target reached", with store and price). *Watch again* re-arms it.
+- Each alert shows how close the price is (progress bar), which conditions are met, and **buy-now-or-wait advice**
+  from the 90-day history: how many days the price was at or below your target, whether the target is
+  unrealistically low, and whether a drop is likely.
+- Chat works too: *"alert me when the Galaxy S24 drops below 65k with rating above 4.2"*.
+
+**Warranty & Return Deadline Manager** (sidebar → *Returns & warranty*)
+- Return deadlines are calculated from the **actual delivery date** using each store's policy for that category
+  (imported stores use sensible defaults, e.g. Nykaa/AJIO 14 days, groceries non-returnable). Warranty expiry is
+  calculated from delivery + warranty months (e.g. electronics 12, air fryer 24, pressure cooker 60).
+- Countdown meters for both; items with a return closing within 2 days or a warranty ending within 30 days are
+  flagged, sorted to the top and sent as **reminders** in notifications.
+- Upload and store **invoices and warranty cards** (PDF or image, up to 5 MB) against each order, then open
+  or delete them later. Only the owner can download their files.
+- Periods can be edited if your invoice says otherwise.
+
+**True Final Price Calculator** (every product page, and a new row in *Compare*)
+- Works out the real checkout price at each store: listed price + delivery + platform/COD fees − coupons −
+  the **best single bank offer for the cards you hold** − exchange value and exchange bonus.
+- Pick your cards (HDFC, ICICI, SBI, Axis, Kotak), cash on delivery, coupons and old-device value; the
+  breakdown updates instantly and shows the cheapest final deal, how much you save, and cashback that arrives later.
+- Points out when the cheapest *listed* store is not the cheapest *after offers*.
+- Offers are illustrative (they change daily on real sites), and are kept in one place: `pricing/OfferBook.java`.
+
+**Shopping Budget Guardian** (sidebar → *Budget*)
+- Set a total monthly budget and per-category budgets (Electronics, Fashion, Home & Kitchen, Beauty, Groceries, Health, Other).
+- Spending is calculated from all orders, **including ones imported from emails and SMS** (categories come from
+  the product, the store or the product name).
+- Warnings at **70%, 90% and 100%** of each budget (once per threshold per month) appear as notifications.
+- Shows remaining capacity, a safe amount to spend per day, the projected month-end total, a 6-month stacked
+  spending chart (with a table view), and plain-language insights.
+
+**Overview glance strip**: budget used, alerts reached and returns closing, each one click away.
 
 **Orders**: one timeline for all stores, progress bars, expandable tracking history, live status changes.
 
@@ -143,13 +183,19 @@ ShopSync/
 │   │   ├── PriceInsight               price-history analysis and buying verdict
 │   │   ├── ShoppingAssistant          the AI agent: intents, entities, grounded replies
 │   │   ├── OrderTrackingService       per-user orders and stats
+│   │   ├── OrderCategories            maps any order (incl. imported) to a spending category
+│   │   ├── SmartFeatures              groups the four money-saving services
 │   │   └── LiveUpdateEngine           background price/order updates (ScheduledExecutorService)
+│   ├── alerts/                        PriceAlertRule, PriceAlertService (conditions, buy/wait advice)
+│   ├── protection/                    ProtectionService (return/warranty deadlines, reminders), StoredDocument
+│   ├── pricing/                       OfferRule, OfferBook, CheckoutProfile, FinalPriceService
+│   ├── budget/                        BudgetService (monthly/category budgets, 70/90/100% warnings)
 │   ├── ai/                            LlmClient (interface), GeminiClient (java.net.http)
 │   ├── inbox/                         MessageParser (rules + optional AI), InboxService (create/update orders,
 │   │                                  forwarding addresses, Gmail script), ImportedOrderStore, ParsedMessage
 │   ├── server/WebServer.java          REST API, auth cookies, static files (JDK HttpServer)
 │   ├── data/                          Catalog, PolicyBook, SampleOrders, TrackingMessages
-│   └── util/                          Json (writer), JsonParser, JsonSerializable
+│   └── util/                          Json (writer), JsonParser, JsonSerializable, Money (₹ formatting)
 └── web/
     ├── login.html, index.html
     ├── css/base.css, login.css, app.css
@@ -181,6 +227,16 @@ the model never makes up a price, because it only sees ShopSync's numbers.
 | POST | `/api/assistant` `{"message": "..."}` | AI assistant |
 | GET | `/api/orders`, `/api/orders/{id}`, `/api/summary`, `/api/alerts` | tracking |
 | POST | `/api/demo/order` | place a random demo order |
+| GET/POST | `/api/price-alerts` | list / create price alerts (`productId, targetPrice, minRating, stores, inStockOnly`) |
+| POST | `/api/price-alerts/{id}/rearm`, `/api/price-alerts/{id}/delete` | re-arm / delete an alert |
+| GET | `/api/protection` | return deadlines and warranties for every order |
+| POST | `/api/protection/{orderId}/settings` | change return days / warranty months |
+| POST | `/api/documents` | upload an invoice or warranty card (base64 JSON, max 5 MB) |
+| GET | `/api/documents/{id}` · POST `/api/documents/{id}/delete` | open / delete a document |
+| GET/POST | `/api/checkout-profile` | your cards, COD, coupons and exchange value |
+| GET | `/api/products/{id}/final-price` | true checkout price at every store |
+| GET/POST | `/api/budget` | budget summary / save budgets `{"budgets": {"Total": 70000, "Fashion": 15000}}` |
+| GET | `/api/glance` | overview strip data |
 | GET | `/api/inbox` | forwarding address, recent imports, sample messages |
 | POST | `/api/inbox/preview`, `/api/inbox/import` | read a pasted message / add or update the order |
 | POST | `/api/inbox/hook/{secret}` | **public** forwarding address (JSON or plain text), used by Gmail/phones |

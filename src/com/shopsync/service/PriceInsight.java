@@ -95,6 +95,7 @@ public class PriceInsight implements JsonSerializable {
     }
 
     public Verdict getVerdict() { return verdict; }
+    public List<PricePoint> getBestSeries() { return bestPriceSeries; }
     public String getVerdictText() { return verdictText; }
     public double getCurrent() { return current; }
     public double getLowest() { return lowest; }
