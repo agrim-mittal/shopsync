@@ -158,6 +158,7 @@
   function setView(view) {
     if (!view) return;
     S.view = view;
+    setPageTitle(view);
     $$(".nav-item[data-view]").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
     $$(".view").forEach((v) => v.classList.toggle("active", v.id === "view-" + view));
     window.scrollTo({ top: 0 });
@@ -173,6 +174,134 @@
   }
   $$(".nav-item[data-view]").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
 
+
+  // ======================================================================= app shell: title, sidebar, user menu
+  function setPageTitle(view) {
+    const sec = $("#view-" + view);
+    if (!sec) return;
+    const h = $(".page-head h1", sec);
+    const title = view === "discover" ? "Overview" : (h ? h.textContent : "");
+    const holder = $("#pageTitle");
+    const old = $("span", holder);
+    if (old && old.textContent === title) return;
+    const next = document.createElement("span");
+    next.textContent = title;
+    next.className = "in";
+    if (old) { old.className = "out"; setTimeout(() => old.remove(), 380); }
+    holder.appendChild(next);
+    $("#crumbGroup").textContent = sec.dataset.group || "";
+    document.title = title + " · ShopSync";
+  }
+
+  // collapsible sidebar (remembered per browser)
+  const setCollapsed = (on) => {
+    document.body.classList.toggle("side-collapsed", on);
+    $("#collapseBtn").setAttribute("aria-label", on ? "Expand sidebar" : "Collapse sidebar");
+    try { localStorage.setItem("ss-collapsed", on ? "1" : "0"); } catch (e) { /* ignore */ }
+    setTimeout(() => { moveGlider(); syncSegs(); if (S.modal) drawHistory(); updateCarousel(); }, 420);
+  };
+  $("#collapseBtn").addEventListener("click", () => setCollapsed(!document.body.classList.contains("side-collapsed")));
+  try { if (localStorage.getItem("ss-collapsed") === "1" && innerWidth > 900) document.body.classList.add("side-collapsed"); } catch (e) { /* ignore */ }
+
+  // ripple on nav clicks
+  document.addEventListener("pointerdown", (e) => {
+    const item = e.target.closest(".nav-item, .kpi, .user-menu button");
+    if (!item) return;
+    const r = item.getBoundingClientRect();
+    const dot = document.createElement("span");
+    dot.className = "ripple";
+    dot.style.left = (e.clientX - r.left) + "px";
+    dot.style.top = (e.clientY - r.top) + "px";
+    item.appendChild(dot);
+    setTimeout(() => dot.remove(), 650);
+  });
+
+  // user menu
+  const userMenu = $("#userMenu");
+  $("#userChip").addEventListener("click", (e) => {
+    e.stopPropagation();
+    const open = !userMenu.classList.contains("open");
+    userMenu.classList.toggle("open", open);
+    $("#userChip").setAttribute("aria-expanded", String(open));
+  });
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".user-wrap")) { userMenu.classList.remove("open"); $("#userChip").setAttribute("aria-expanded", "false"); }
+    else if (e.target.closest(".user-menu [data-goto]")) userMenu.classList.remove("open");
+  });
+
+  // search expands while focused
+  $("#globalSearch").addEventListener("focus", () => $("#searchBox").classList.add("wide"));
+  $("#globalSearch").addEventListener("blur", () => $("#searchBox").classList.remove("wide"));
+
+  // ======================================================================= overview: drops chart + carousel
+  S.dropMode = "pct";
+  S.drops = [];
+  function renderDropChart(animate) {
+    const box = $("#dropChart");
+    if (!box || !S.drops.length) return;
+    const pct = S.dropMode === "pct";
+    const vals = S.drops.map((d) => pct ? Math.max(0, d.belowAverage) : d.bestPrice);
+    const max = Math.max(...vals, 1);
+    const prev = box.querySelector(".dc-bar.on");
+    const onId = prev ? prev.dataset.id : S.drops[0].product.id;
+    box.innerHTML = `<div class="dc-grid"><span></span><span></span><span></span></div>` + S.drops.map((d, i) => {
+      const v = vals[i];
+      const label = pct ? (v > 0 ? "−" + v.toFixed(1) + "%" : "0%") : inr(v);
+      return `<button class="dc-bar ${d.product.id === onId ? "on" : ""} ${animate ? "grow" : ""}" style="--h:${Math.max(6, v / max * 100).toFixed(1)};--i:${i}" data-id="${d.product.id}" data-open="${d.product.id}">
+        <span class="dc-tip"><small>${esc(d.product.shortName)}</small>${label} · ${d.bestMarketplace}</span>
+        <i></i><span class="dc-ic">${pIcon(d.product.kind, 15)}</span></button>`;
+    }).join("");
+  }
+  $("#dropChart").addEventListener("mouseover", (e) => {
+    const b = e.target.closest(".dc-bar");
+    if (!b) return;
+    $$("#dropChart .dc-bar").forEach((x) => x.classList.toggle("on", x === b));
+  });
+  $("#dropMode").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-mode]");
+    if (!b) return;
+    $$("#dropMode button").forEach((x) => x.classList.toggle("on", x === b));
+    S.dropMode = b.dataset.mode;
+    renderDropChart(true);
+  });
+
+  // drag-to-scroll carousel with arrows and a progress bar
+  const rec = $("#recRow");
+  function updateCarousel() {
+    const max = rec.scrollWidth - rec.clientWidth;
+    $("#recProgress").style.width = (max > 0 ? Math.max(12, (rec.clientWidth / rec.scrollWidth) * 100) : 100) + "%";
+    $("#recProgress").style.transform = `translateX(${max > 0 ? (rec.scrollLeft / max) * (100 / Math.max(.12, rec.clientWidth / rec.scrollWidth) - 100) : 0}%)`;
+    $("#recPrev").disabled = rec.scrollLeft < 4;
+    $("#recNext").disabled = rec.scrollLeft > max - 4;
+  }
+  rec.addEventListener("scroll", updateCarousel, { passive: true });
+  const step = () => Math.max(260, rec.clientWidth * 0.8);
+  $("#recPrev").addEventListener("click", () => rec.scrollBy({ left: -step(), behavior: "smooth" }));
+  $("#recNext").addEventListener("click", () => rec.scrollBy({ left: step(), behavior: "smooth" }));
+  let drag = null;
+  rec.addEventListener("pointerdown", (e) => {
+    if (e.pointerType !== "mouse") return;
+    drag = { x: e.clientX, left: rec.scrollLeft, moved: false, v: 0, t: performance.now() };
+  });
+  addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x;
+    if (Math.abs(dx) > 4) { drag.moved = true; rec.classList.add("dragging"); }
+    const now = performance.now();
+    drag.v = (rec.scrollLeft - (drag.left - dx)) / Math.max(1, now - drag.t);
+    drag.t = now;
+    rec.scrollLeft = drag.left - dx;
+  });
+  addEventListener("pointerup", () => {
+    if (!drag) return;
+    const moved = drag.moved;
+    let v = -drag.v * 16;                    // a little momentum after letting go
+    drag = null;
+    rec.classList.remove("dragging");
+    const glide = () => { if (Math.abs(v) < .5) return; rec.scrollLeft += v; v *= .92; requestAnimationFrame(glide); };
+    if (moved) { requestAnimationFrame(glide); rec.addEventListener("click", (ev) => ev.stopPropagation(), { capture: true, once: true }); }
+  });
+
   // ======================================================================= overview
   const PROMPTS = ["Best earbuds under ₹5,000", "Compare iPhone 15 vs Galaxy S24",
     "Return policy for Nike Air Max", "Should I buy the Sony XM5 now?", "Gift ideas under ₹2,000"];
@@ -181,8 +310,9 @@
     const h = new Date().getHours();
     const part = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
     $("#greeting").textContent = `${part}, ${S.user.firstName}`;
+    $("#wsName").textContent = `${S.user.firstName}'s shopping`;
     $("#heroDate").textContent = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
-    $("#heroChips").innerHTML = PROMPTS.slice(0, 4).map((p) => `<button class="qchip" data-ask="${esc(p)}">${esc(p)}</button>`).join("");
+    $("#heroChips").innerHTML = PROMPTS.slice(0, 3).map((p) => `<button class="qchip" data-ask="${esc(p)}">${esc(p)}</button>`).join("");
     $("#heroAskInput").placeholder = "Ask the assistant, e.g. “" + PROMPTS[0] + "”";
     $$(".m-value[data-count]").forEach((elm) => countUp(elm, Number(elm.dataset.count)));
   }
@@ -237,13 +367,21 @@
     try {
       const [recs, deals, summary] = await Promise.all([
         refresh ? null : api("/api/recommendations?limit=8"),
-        api("/api/deals?limit=6"),
+        api("/api/deals?limit=8"),
         api("/api/summary"),
       ]);
       if (recs) {
         $("#recRow").innerHTML = recs.slice(0, 8).map(recCard).join("");
         $("#recRow").classList.add("stagger");
+        requestAnimationFrame(updateCarousel);
       }
+      const firstChart = !S.drops.length;
+      S.drops = deals;
+      if (firstChart || !refresh) renderDropChart(true);
+      else S.drops.forEach((d) => {          // live refresh: update tooltips without redrawing
+        const tip = $(`#dropChart .dc-bar[data-id="${d.product.id}"] .dc-tip`);
+        if (tip) tip.innerHTML = `<small>${esc(d.product.shortName)}</small>${S.dropMode === "pct" ? (d.belowAverage > 0 ? "−" + d.belowAverage.toFixed(1) + "%" : "0%") : inr(d.bestPrice)} · ${d.bestMarketplace}`;
+      });
       if (!refresh) {
         $("#dealGrid").innerHTML = `<div class="deal-row head"><div>Product</div><div class="hide-md">Lowest at</div><div class="num">Price</div><div class="num hide-md">30-day avg</div><div class="num">vs. average</div></div>`
           + deals.map(dealRow).join("");
@@ -1127,6 +1265,10 @@
       $("#gProt").textContent = p.returnsClosingSoon ? `${p.returnsClosingSoon} return${p.returnsClosingSoon > 1 ? "s" : ""} closing` : `${p.activeWarranties} under warranty`;
       $("#gProtSub").textContent = p.warrantiesExpiringSoon ? `${p.warrantiesExpiringSoon} warranty expiring within 30 days` : `${p.documentCount} document${p.documentCount === 1 ? "" : "s"} stored`;
       $("#alertsBadge").textContent = g.alerts.triggered || "";
+      const used = b.level === "NO_BUDGET" ? 0 : pct(b.percent);
+      $("#wsRing").style.strokeDashoffset = String(94.2 * (1 - used / 100));
+      $("#wsRing").setAttribute("class", "val lv-" + b.level);
+      $("#wsSub").textContent = b.level === "NO_BUDGET" ? "4 stores connected" : `${b.percent}% of budget used`;
       $("#protBadge").textContent = p.returnsClosingSoon || "";
     } catch (err) { console.error(err); }
   }
@@ -1598,7 +1740,8 @@
     observeReveals();
     poll();
     setInterval(poll, 4000);
-    window.addEventListener("resize", () => { moveGlider(); syncSegs(); if (S.modal) drawHistory(); });
+    window.addEventListener("resize", () => { moveGlider(); syncSegs(); updateCarousel(); if (S.modal) drawHistory(); });
+    setPageTitle("discover");
     if (document.fonts) document.fonts.ready.then(() => { moveGlider(); syncSegs(); });
   }
   init();

@@ -26,6 +26,8 @@ window.Icons = (() => {
     copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
     info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
     logo: '<path d="M5.2 13.5A7 7 0 0 1 16.9 6.1"/><path d="M17.6 2.8v3.9h-3.9"/><path d="M18.8 10.5a7 7 0 0 1-11.7 7.4"/><path d="M6.4 21.2v-3.9h3.9"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/>',
+    sidebar: '<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/><path d="m15 10-2 2 2 2"/>',
+    chevron: '<path d="m6 9 6 6 6-6"/>',
     target: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".8"/>',
     wallet: '<path d="M4 7.5V18a2 2 0 0 0 2 2h14V9H6a2 2 0 0 1-2-2 2 2 0 0 1 2-2h12v4"/><circle cx="16" cy="14.5" r="1.2"/>',
     file: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 16.5h6"/>',

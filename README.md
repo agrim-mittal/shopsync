@@ -170,7 +170,10 @@ type and add `GEMINI_API_KEY` under Environment.)
 **Design**: an "evergreen" look: deep green with a butter-yellow accent on warm white, Inter / Inter Tight type,
 large tight headings, rounded cards and line icons, with light and dark themes. Motion includes scroll reveals,
 count-up numbers, magnetic buttons, 3D tilt, a cursor glow on green panels, a moving sheen, sliding nav pills and a
-scroll progress bar (`web/js/motion.js`). Motion is reduced automatically if the device asks for it.
+scroll progress bar (`web/js/motion.js`).
+The dashboard uses a collapsible sidebar (grouped sections, a budget ring, ripples), a top bar with animated page
+titles, breadcrumbs and a user menu, and pages laid out as large panels; the overview has KPI cards, an interactive
+bar chart of today's price drops, an assistant card and a drag-to-scroll recommendations carousel (`web/css/layout.css`). Motion is reduced automatically if the device asks for it.
 
 ---
 
@@ -207,7 +210,7 @@ ShopSync/
 │   └── util/                          Json (writer), JsonParser, JsonSerializable, Money (₹ formatting)
 └── web/
     ├── landing.html, login.html, index.html (the app)
-    ├── css/base.css, theme.css (colours/type), landing.css, login.css, app.css
+    ├── css/base.css, theme.css (colours/type), layout.css (dashboard layout), landing.css, login.css, app.css
     └── js/landing.js, login.js, app.js, motion.js (shared animations), icons.js (line icons), charts.js (SVG charts)
 ```
 

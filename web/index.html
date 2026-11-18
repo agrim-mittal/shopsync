@@ -10,24 +10,36 @@
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/app.css">
   <link rel="stylesheet" href="css/theme.css">
+  <link rel="stylesheet" href="css/layout.css">
   <script>try{document.documentElement.dataset.theme=localStorage.getItem("ss-theme")||"light"}catch(e){}</script>
 </head>
 <body class="app">
 
   <!-- ============================== SIDEBAR ============================== -->
-  <aside class="sidebar">
-    <div class="brand"><span class="brand-mark" data-icon="logo" data-size="18"></span>ShopSync</div>
+  <aside class="sidebar" id="sidebar">
+    <div class="side-top">
+      <div class="brand"><span class="brand-mark" data-icon="logo" data-size="18"></span><span class="brand-text">ShopSync</span></div>
+      <button class="icon-btn collapse-btn" id="collapseBtn" aria-label="Collapse sidebar" title="Collapse sidebar"><span data-icon="sidebar" data-size="17"></span></button>
+    </div>
+
+    <button class="workspace" data-goto="budget" title="Your month at a glance">
+      <span class="ws-icon"><span data-icon="bag" data-size="17"></span></span>
+      <span class="ws-text"><strong id="wsName">My shopping</strong><small id="wsSub">4 stores connected</small></span>
+      <span class="ws-ring" aria-hidden="true"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" class="trk"/><circle cx="18" cy="18" r="15" class="val" id="wsRing"/></svg></span>
+    </button>
 
     <nav class="side-nav">
       <span class="nav-glider" aria-hidden="true"></span>
-      <button class="nav-item active" data-view="discover"><span data-icon="home"></span><span>Overview</span></button>
-      <button class="nav-item" data-view="shop"><span data-icon="bag"></span><span>Compare prices</span></button>
-      <button class="nav-item" data-view="orders"><span data-icon="box"></span><span>Orders</span><span class="nav-badge" id="ordersBadge"></span></button>
-      <button class="nav-item" data-open-chat><span data-icon="chat"></span><span>Assistant</span></button>
+      <div class="nav-label">Shopping</div>
+      <button class="nav-item active" data-view="discover" title="Overview"><span data-icon="home"></span><span>Overview</span></button>
+      <button class="nav-item" data-view="shop" title="Compare prices"><span data-icon="bag"></span><span>Compare prices</span></button>
+      <button class="nav-item" data-view="orders" title="Orders"><span data-icon="box"></span><span>Orders</span><span class="nav-badge" id="ordersBadge"></span></button>
       <div class="nav-label">Money tools</div>
-      <button class="nav-item" data-view="alerts"><span data-icon="target"></span><span>Price alerts</span><span class="nav-badge" id="alertsBadge"></span></button>
-      <button class="nav-item" data-view="protection"><span data-icon="shield"></span><span>Returns &amp; warranty</span><span class="nav-badge warn" id="protBadge"></span></button>
-      <button class="nav-item" data-view="budget"><span data-icon="wallet"></span><span>Budget</span></button>
+      <button class="nav-item" data-view="alerts" title="Price alerts"><span data-icon="target"></span><span>Price alerts</span><span class="nav-badge" id="alertsBadge"></span></button>
+      <button class="nav-item" data-view="protection" title="Returns & warranty"><span data-icon="shield"></span><span>Returns &amp; warranty</span><span class="nav-badge warn" id="protBadge"></span></button>
+      <button class="nav-item" data-view="budget" title="Budget"><span data-icon="wallet"></span><span>Budget</span></button>
+      <div class="nav-label">Help</div>
+      <button class="nav-item" data-open-chat title="Assistant"><span data-icon="chat"></span><span>Assistant</span></button>
     </nav>
 
     <div class="side-card">
@@ -36,21 +48,16 @@
       <p>Ask for picks, comparisons, return policies or the best time to buy.</p>
       <button class="btn-primary small" data-open-chat>Open assistant</button>
     </div>
-
-    <div class="user-block">
-      <div class="avatar" id="userAvatar">?</div>
-      <div class="user-meta">
-        <strong id="userName">…</strong>
-        <small id="userEmail"></small>
-      </div>
-      <button class="icon-btn" id="logoutBtn" title="Sign out" aria-label="Sign out"><span data-icon="logout" data-size="16"></span></button>
-    </div>
   </aside>
 
   <!-- ============================== MAIN ============================== -->
   <div class="main">
     <header class="topbar">
-      <div class="search">
+      <div class="tb-title">
+        <small class="crumb"><span>ShopSync</span><span data-icon="arrow" data-size="11"></span><span id="crumbGroup">Shopping</span></small>
+        <h1 id="pageTitle"><span>Overview</span></h1>
+      </div>
+      <div class="search" id="searchBox">
         <span class="search-icon" data-icon="search" data-size="16"></span>
         <input id="globalSearch" type="search" placeholder="Search products or brands" autocomplete="off">
         <kbd>/</kbd>
@@ -59,59 +66,100 @@
         <span class="live-pill"><span class="live-dot"></span><span>Live</span><small id="lastSync"></small></span>
         <button class="icon-btn" id="themeToggle" aria-label="Toggle theme"></button>
         <button class="icon-btn" id="alertsBtn" aria-label="Notifications"><span data-icon="bell" data-size="17"></span><span class="count hidden" id="alertCount">0</span></button>
+        <div class="user-wrap">
+          <button class="user-chip" id="userChip" aria-haspopup="true" aria-expanded="false">
+            <span class="avatar" id="userAvatar">?</span>
+            <span class="user-meta"><strong id="userName">…</strong><small id="userEmail"></small></span>
+            <span class="chev" data-icon="chevron" data-size="14"></span>
+          </button>
+          <div class="user-menu" id="userMenu" role="menu">
+            <button data-goto="budget" role="menuitem"><span data-icon="wallet" data-size="15"></span>My budget</button>
+            <button data-goto="alerts" role="menuitem"><span data-icon="target" data-size="15"></span>Price alerts</button>
+            <button data-goto="orders" role="menuitem"><span data-icon="box" data-size="15"></span>Orders</button>
+            <hr>
+            <button id="logoutBtn" role="menuitem" class="danger"><span data-icon="logout" data-size="15"></span>Sign out</button>
+          </div>
+        </div>
       </div>
     </header>
 
     <!-- ------------------------------ OVERVIEW ------------------------------ -->
-    <section class="view active" id="view-discover">
-      <div class="hero">
-        <div class="hero-grid" aria-hidden="true"></div>
-        <div class="hero-orb" aria-hidden="true"></div>
-        <div class="hero-content">
-          <p class="hero-kicker" id="heroDate"></p>
-          <h1 id="greeting">Overview</h1>
-          <p class="hero-sub">Live prices and orders across Amazon, Flipkart, Myntra and Croma.</p>
+    <section class="view active" id="view-discover" data-group="Shopping">
+      <div class="page-head"><div><h1>Overview</h1><p>Your stores, money and orders at a glance.</p></div></div>
+
+      <div class="ov-panel">
+        <div class="ov-head">
+          <div><h2 id="greeting">Overview</h2><p class="muted" id="heroDate"></p></div>
+          <div class="ov-actions">
+            <span class="hc-chip-sm"><span data-icon="clock" data-size="14"></span>This month</span>
+            <button class="btn-primary small" data-open-chat><span data-icon="spark" data-size="14"></span>Ask assistant</button>
+          </div>
+        </div>
+        <div class="kpis stagger" id="glance">
+          <button class="kpi" data-tilt="4" data-goto="orders" style="--i:0">
+            <span class="kpi-top"><span class="kpi-ic"><span data-icon="truck" data-size="16"></span></span>Orders<span class="kpi-more" data-icon="arrow" data-size="14"></span></span>
+            <strong class="kpi-val" id="heroActive">0</strong><small>in progress right now</small>
+          </button>
+          <button class="kpi" data-tilt="4" data-goto="budget" style="--i:1">
+            <span class="kpi-top"><span class="kpi-ic"><span data-icon="wallet" data-size="16"></span></span>Budget<span class="kpi-more" data-icon="arrow" data-size="14"></span></span>
+            <strong class="kpi-val" id="gBudget">—</strong><small id="gBudgetSub"></small>
+            <span class="g-meter"><i id="gBudgetBar"></i></span>
+          </button>
+          <button class="kpi" data-tilt="4" data-goto="alerts" style="--i:2">
+            <span class="kpi-top"><span class="kpi-ic"><span data-icon="target" data-size="16"></span></span>Price alerts<span class="kpi-more" data-icon="arrow" data-size="14"></span></span>
+            <strong class="kpi-val" id="gAlerts">—</strong><small id="gAlertsSub"></small>
+          </button>
+          <button class="kpi" data-tilt="4" data-goto="protection" style="--i:3">
+            <span class="kpi-top"><span class="kpi-ic"><span data-icon="shield" data-size="16"></span></span>Returns &amp; warranty<span class="kpi-more" data-icon="arrow" data-size="14"></span></span>
+            <strong class="kpi-val" id="gProt">—</strong><small id="gProtSub"></small>
+          </button>
+        </div>
+      </div>
+
+      <div class="ov-row">
+        <div class="ov-panel drops-panel">
+          <div class="ov-head">
+            <div><small class="muted">Below the 30-day average on today's top drops</small><h2 class="big" id="heroSavings">₹0</h2></div>
+            <div class="mini-seg" id="dropMode"><button class="on" data-mode="pct">% drop</button><button data-mode="price">Price</button></div>
+          </div>
+          <div class="drop-chart" id="dropChart"></div>
+        </div>
+
+        <div class="ov-ask" data-glow>
+          <span class="ov-ask-icon"><span data-icon="spark" data-size="20"></span></span>
+          <h2>What are you shopping for?</h2>
+          <p>Ask for picks, comparisons, final prices, return windows or your budget.</p>
           <form class="ask-bar" id="heroAsk">
-            <span class="ask-icon" data-icon="spark" data-size="18"></span>
             <input id="heroAskInput" type="text" autocomplete="off" placeholder="Ask the assistant">
-            <button class="btn-primary small" type="submit">Ask</button>
+            <button class="btn-primary small" type="submit" aria-label="Ask"><span data-icon="send" data-size="15"></span></button>
           </form>
           <div class="quick-chips" id="heroChips"></div>
         </div>
-        <div class="hero-metrics">
-          <div class="metric"><span class="m-label">Products tracked</span><span class="m-value" data-count="18">0</span></div>
-          <div class="metric"><span class="m-label">Stores connected</span><span class="m-value" data-count="4">0</span></div>
-          <div class="metric"><span class="m-label">Orders in progress</span><span class="m-value" id="heroActive">0</span></div>
-          <div class="metric"><span class="m-label">Savings on today's drops</span><span class="m-value" id="heroSavings">₹0</span></div>
-        </div>
       </div>
 
-      <div class="glance stagger" id="glance">
-        <button class="glance-card" data-tilt="5" data-goto="budget"><span class="g-icon"><span data-icon="wallet" data-size="18"></span></span><span class="g-body"><small>Budget this month</small><strong id="gBudget">—</strong><span class="g-sub" id="gBudgetSub"></span><span class="g-meter"><i id="gBudgetBar"></i></span></span></button>
-        <button class="glance-card" data-tilt="5" data-goto="alerts"><span class="g-icon"><span data-icon="target" data-size="18"></span></span><span class="g-body"><small>Price alerts</small><strong id="gAlerts">—</strong><span class="g-sub" id="gAlertsSub"></span></span></button>
-        <button class="glance-card" data-tilt="5" data-goto="protection"><span class="g-icon"><span data-icon="shield" data-size="18"></span></span><span class="g-body"><small>Returns &amp; warranty</small><strong id="gProt">—</strong><span class="g-sub" id="gProtSub"></span></span></button>
+      <div class="ov-panel">
+        <div class="ov-head">
+          <div><h2>Recommended for you</h2><p class="muted">Ranked by your orders, recently viewed items, ratings and price trend.</p></div>
+          <div class="ov-actions">
+            <button class="icon-btn small" id="recPrev" aria-label="Previous"><span data-icon="arrow" data-size="15" class="flip"></span></button>
+            <button class="icon-btn small" id="recNext" aria-label="Next"><span data-icon="arrow" data-size="15"></span></button>
+          </div>
+        </div>
+        <div class="rec-row carousel" id="recRow"></div>
+        <div class="car-progress"><i id="recProgress"></i></div>
       </div>
 
-      <div class="section-head reveal">
-        <div>
-          <h2>Recommended for you</h2>
-          <p>Ranked by your orders, recently viewed items, ratings and price trend.</p>
+      <div class="ov-panel">
+        <div class="ov-head">
+          <div><h2>Largest price drops</h2><p class="muted">Best current price compared with the 30-day average.</p></div>
+          <button class="btn-ghost small" data-goto="shop">Compare all<span data-icon="arrow" data-size="14"></span></button>
         </div>
-        <button class="link-btn" data-open-chat data-prompt="Recommend something for me">More suggestions</button>
+        <div class="deal-table" id="dealGrid"></div>
       </div>
-      <div class="rec-row reveal" id="recRow"></div>
-
-      <div class="section-head reveal">
-        <div>
-          <h2>Largest price drops</h2>
-          <p>Best current price compared with the 30-day average.</p>
-        </div>
-      </div>
-      <div class="deal-table reveal" id="dealGrid"></div>
     </section>
 
     <!-- ------------------------------ COMPARE ------------------------------ -->
-    <section class="view" id="view-shop">
+    <section class="view" id="view-shop" data-group="Shopping">
       <div class="page-head">
         <div>
           <h1>Compare prices</h1>
@@ -134,7 +182,7 @@
     </section>
 
     <!-- ------------------------------ ORDERS ------------------------------ -->
-    <section class="view" id="view-orders">
+    <section class="view" id="view-orders" data-group="Shopping">
       <div class="page-head">
         <div>
           <h1>Orders</h1>
@@ -167,7 +215,7 @@
 
 
     <!-- ------------------------------ PRICE ALERTS ------------------------------ -->
-    <section class="view" id="view-alerts">
+    <section class="view" id="view-alerts" data-group="Money tools">
       <div class="page-head">
         <div>
           <h1>Price alerts</h1>
@@ -180,7 +228,7 @@
     </section>
 
     <!-- ------------------------------ RETURNS & WARRANTY ------------------------------ -->
-    <section class="view" id="view-protection">
+    <section class="view" id="view-protection" data-group="Money tools">
       <div class="page-head">
         <div>
           <h1>Returns &amp; warranty</h1>
@@ -200,7 +248,7 @@
     </section>
 
     <!-- ------------------------------ BUDGET ------------------------------ -->
-    <section class="view" id="view-budget">
+    <section class="view" id="view-budget" data-group="Money tools">
       <div class="page-head">
         <div>
           <h1>Budget</h1>
