@@ -1155,7 +1155,7 @@
         </div>
         <div class="meter"><i style="width:${v.progress}%" class="${hit || v.progress >= 100 ? "lv-done" : ""}"></i></div>
         <div class="conds">${v.conditions.map((c) => `<span class="cond ${c.met ? "met" : ""}" title="${esc(c.detail)}">${icon(c.met ? "check" : "close", 11)}${esc(c.label)}</span>`).join("")}</div>
-        <div class="advice tone-${advTone}"><strong>${advLabel}</strong><span>${esc(String(v.adviceText).replace(/^(Buy now|Worth waiting|Keep waiting)[:,]\s*/i, (m) => m.toLowerCase().startsWith("worth") ? "" : ""))}</span></div>
+        <div class="advice tone-${advTone}"><strong>${advLabel}</strong><span>${esc(String(v.adviceText).replace(/^(Buy now|Worth waiting|Keep waiting)[:,]\s*/i, "").replace(/^./, (c) => c.toUpperCase()))}</span></div>
         <div class="rule-actions">
           <button class="btn-ghost small" data-open="${p.id}">View prices</button>
           ${hit ? `<button class="btn-ghost small" data-rearm="${v.id}">${icon("refresh", 14)}Watch again</button>` : ""}

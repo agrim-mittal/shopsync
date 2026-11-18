@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ShopSync · Every store, one smart cart</title>
+  <meta name="description" content="Compare live prices across Amazon, Flipkart, Myntra and Croma, see the true checkout price, set price alerts, track orders, return deadlines and your monthly budget.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%231b4741'/><path d='M9 12h14l-1.2 11H10.2z' fill='none' stroke='%23ebe0a6' stroke-width='2'/><path d='M12.5 12v-1.5a3.5 3.5 0 0 1 7 0V12' fill='none' stroke='%23ebe0a6' stroke-width='2'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/theme.css">
+  <link rel="stylesheet" href="css/landing.css">
+</head>
+<body class="lp">
+  <div class="scroll-progress" aria-hidden="true"><i></i></div>
+
+  <!-- ============================== NAV ============================== -->
+  <header class="lp-nav" id="lpNav">
+    <a class="brand" href="/"><span class="brand-mark" data-icon="logo" data-size="18"></span>ShopSync</a>
+    <nav class="lp-links" id="lpLinks">
+      <a href="#features" class="active">Features</a>
+      <a href="#tools">Money tools</a>
+      <a href="#how">How it works</a>
+      <a href="#assistant">Assistant</a>
+      <span class="lp-link-glider" aria-hidden="true"></span>
+    </nav>
+    <div class="lp-nav-actions">
+      <a class="btn-ghost" href="/login.html">Sign in</a>
+      <a class="btn-primary" href="/login.html#signup" data-magnetic>Get started</a>
+    </div>
+  </header>
+
+  <!-- ============================== HERO ============================== -->
+  <section class="lp-hero">
+    <div class="lp-hero-left" data-glow>
+      <div class="lp-hero-inner">
+        <span class="lp-live"><span class="dot"></span>Live prices from 4 stores</span>
+        <h1 class="lp-title">
+          <span class="line"><span>Every store.</span></span>
+          <span class="line"><span>One smart cart.</span></span>
+        </h1>
+        <p class="lp-lead">Compare live prices across Amazon, Flipkart, Myntra and Croma, see what you'll really pay at checkout,
+          and keep every order, return deadline and budget in one calm dashboard.</p>
+        <div class="lp-cta">
+          <a class="btn-butter" href="#features">Discover <span data-icon="arrow" data-size="18"></span></a>
+          <a class="btn-glass" href="/login.html" data-magnetic>Try the live demo</a>
+        </div>
+      </div>
+      <div class="lp-hero-foot">
+        <small>Prices compared from</small>
+        <div class="lp-stores">
+          <span class="s-Amazon"><i class="dot-store"></i>Amazon</span>
+          <span class="s-Flipkart"><i class="dot-store"></i>Flipkart</span>
+          <span class="s-Myntra"><i class="dot-store"></i>Myntra</span>
+          <span class="s-Croma"><i class="dot-store"></i>Croma</span>
+        </div>
+        <div class="lp-badges">
+          <span><span data-icon="check" data-size="14"></span>Built in plain Java</span>
+          <span><span data-icon="spark" data-size="14"></span>AI shopping assistant</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="lp-hero-right">
+      <!-- budget card -->
+      <div class="lp-card hc-1" data-tilt="5">
+        <div class="hc-row">
+          <div>
+            <div class="hc-big" data-countto="26290" data-prefix="₹">₹0</div>
+            <small>Left in your November budget</small>
+          </div>
+          <span class="hc-chip"><span data-icon="clock" data-size="14"></span>12 days left</span>
+        </div>
+        <div class="hc-split">
+          <div><strong>₹62,784</strong><small>Electronics</small></div>
+          <div><strong>₹10,593</strong><small>Fashion</small></div>
+          <div><strong>₹10,333</strong><small>Other</small></div>
+        </div>
+        <div class="hc-bars"><i style="--w:66%"></i><i style="--w:20%"></i><i style="--w:14%"></i></div>
+      </div>
+
+      <!-- price history bar chart -->
+      <div class="lp-card hc-2" data-tilt="5">
+        <div class="hc-row">
+          <div>
+            <small>Lowest price · Galaxy S24</small>
+            <div class="hc-big" id="hcPrice">₹70,239</div>
+            <small class="hc-delta"><span data-icon="trendDown" data-size="13"></span>Down <b>6.8%</b> from last month</small>
+          </div>
+          <span class="hc-chip"><span data-icon="chart" data-size="14"></span>6 months</span>
+        </div>
+        <div class="lp-bars" id="heroBars" role="img" aria-label="Lowest monthly price, last six months"></div>
+      </div>
+
+      <!-- orders table -->
+      <div class="lp-card hc-3" data-tilt="4">
+        <div class="hc-row">
+          <strong class="hc-title">Your orders</strong>
+          <span class="hc-search"><span data-icon="search" data-size="14"></span>Search</span>
+        </div>
+        <div class="hc-table">
+          <div class="hc-tr head"><span>Item</span><span>Store</span><span>Status</span></div>
+          <div class="hc-tr"><span>Sony WH-1000XM5</span><span class="s-Amazon"><i class="dot-store"></i>Amazon</span><span class="pill ok">Shipped</span></div>
+          <div class="hc-tr"><span>Levi's 511 Jeans</span><span class="s-Flipkart"><i class="dot-store"></i>Flipkart</span><span class="pill go">Out today</span></div>
+          <div class="hc-tr"><span>Maybelline Kajal</span><span><i class="dot-store"></i>Nykaa</span><span class="pill">Delivered</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== LIVE TICKER ============================== -->
+  <section class="lp-ticker" aria-label="Live price drops">
+    <div class="lp-ticker-label"><span class="dot"></span>Live drops</div>
+    <div class="lp-marquee"><div class="lp-track" id="ticker"></div></div>
+  </section>
+
+  <!-- ============================== STATS ============================== -->
+  <section class="lp-stats" data-reveal>
+    <div><strong data-countto="4">0</strong><span>stores searched in parallel</span></div>
+    <div><strong data-countto="90" data-suffix=" days">0</strong><span>of price history per product</span></div>
+    <div><strong id="statSaved" data-countto="0" data-prefix="₹">₹0</strong><span>below average on today's top drops</span></div>
+    <div><strong data-countto="3">0</strong><span>budget warnings: 70%, 90%, 100%</span></div>
+  </section>
+
+  <!-- ============================== FEATURES ============================== -->
+  <section class="lp-section" id="features">
+    <div class="lp-head" data-reveal>
+      <span class="lp-pill"><i></i>Features</span>
+      <h2>Powerful tools designed to<br>simplify shopping.</h2>
+    </div>
+    <div class="lp-divider" data-reveal><span class="brand-mark" data-icon="logo" data-size="20"></span></div>
+
+    <div class="lp-grid">
+      <!-- 1. compare -->
+      <article class="lp-feature" data-reveal style="--d:.0s">
+        <div class="lp-frame">
+          <div class="mini">
+            <div class="mini-head"><strong>Compare prices</strong>
+              <div class="mini-seg" id="cmpSeg"><button class="on" data-p="0">iPhone 15</button><button data-p="1">XM5</button><button data-p="2">Air Max</button></div></div>
+            <div class="cmp-rows" id="cmpRows"></div>
+          </div>
+        </div>
+        <h3>Live price comparison</h3>
+        <p>Search four stores at once. Prices refresh every few seconds and the cheapest is always on top.</p>
+        <a class="btn-ghost" href="/login.html">Learn more</a>
+      </article>
+
+      <!-- 2. price alert -->
+      <article class="lp-feature" id="tools" data-reveal style="--d:.08s">
+        <div class="lp-frame">
+          <div class="mini">
+            <div class="mini-head"><strong>Price alert</strong><span class="mini-status" id="alStatus">Watching</span></div>
+            <div class="al-now"><small>Best price now</small><b>₹23,999</b></div>
+            <label class="al-slider"><span>Alert me at <b id="alTarget">₹22,000</b></span>
+              <input type="range" id="alRange" min="18000" max="27000" step="250" value="22000" aria-label="Target price"></label>
+            <div class="al-meter"><i id="alMeter"></i></div>
+            <div class="al-conds">
+              <button class="cond-t on" data-c="rating">Rating ≥ 4.2</button>
+              <button class="cond-t" data-c="stock">In stock</button>
+              <button class="cond-t" data-c="store">Amazon only</button>
+            </div>
+          </div>
+        </div>
+        <h3>Smart price alerts</h3>
+        <p>Set a target plus conditions like rating or store. ShopSync watches and tells you whether to buy now or wait.</p>
+        <a class="btn-ghost" href="/login.html">Learn more</a>
+      </article>
+
+      <!-- 3. final price -->
+      <article class="lp-feature" data-reveal style="--d:.16s">
+        <div class="lp-frame">
+          <div class="mini">
+            <div class="mini-head"><strong>True final price</strong><span class="mini-sub">Galaxy S24</span></div>
+            <div class="fp-cards" id="fpCards"><button class="on" data-b="HDFC">HDFC</button><button data-b="ICICI">ICICI</button><button data-b="Axis">Axis</button><button data-b="ex">+ Exchange</button></div>
+            <div class="fp-lines" id="fpLines"></div>
+            <div class="fp-total"><span>You pay</span><b id="fpTotal">₹0</b></div>
+          </div>
+        </div>
+        <h3>True final price</h3>
+        <p>Delivery, platform fees, coupons, bank offers and exchange bonuses, all added up before you check out.</p>
+        <a class="btn-ghost" href="/login.html">Learn more</a>
+      </article>
+
+      <!-- 4. returns -->
+      <article class="lp-feature" data-reveal style="--d:.0s">
+        <div class="lp-frame">
+          <div class="mini">
+            <div class="mini-head"><strong>Return window</strong><span class="mini-status warn">Closing soon</span></div>
+            <div class="rw">
+              <svg viewBox="0 0 120 120" class="rw-ring" aria-hidden="true">
+                <circle cx="60" cy="60" r="50" class="trk"/><circle cx="60" cy="60" r="50" class="val" id="rwRing"/>
+              </svg>
+              <div class="rw-count"><b id="rwClock">23:59:59</b><small>left to return<br>AirPods Pro · Amazon</small></div>
+            </div>
+            <div class="rw-war"><span data-icon="shield" data-size="14"></span>Warranty until 12 Nov 2027<span class="rw-doc"><span data-icon="file" data-size="13"></span>invoice.pdf</span></div>
+          </div>
+        </div>
+        <h3>Returns &amp; warranty</h3>
+        <p>Deadlines count from the delivery date. Get reminded before a window closes and keep invoices beside each order.</p>
+        <a class="btn-ghost" href="/login.html">Learn more</a>
+      </article>
+
+      <!-- 5. budget -->
+      <article class="lp-feature" data-reveal style="--d:.08s">
+        <div class="lp-frame">
+          <div class="mini">
+            <div class="mini-head"><strong>Monthly budget</strong><span class="mini-status" id="bgPill">On track</span></div>
+            <div class="bg-fig"><b id="bgSpent">₹48,000</b><span>of ₹70,000</span></div>
+            <div class="bg-track"><i id="bgFill"></i><b style="left:70%"></b><b style="left:90%"></b></div>
+            <div class="bg-marks"><span style="left:70%">70%</span><span style="left:90%">90%</span></div>
+            <label class="al-slider"><span>Drag to spend</span><input type="range" id="bgRange" min="10000" max="80000" step="500" value="48000" aria-label="Amount spent"></label>
+          </div>
+        </div>
+        <h3>Budget guardian</h3>
+        <p>Monthly and category budgets built from all your orders, with warnings at 70%, 90% and 100%.</p>
+        <a class="btn-ghost" href="/login.html">Learn more</a>
+      </article>
+
+      <!-- 6. import -->
+      <article class="lp-feature" data-reveal style="--d:.16s">
+        <div class="lp-frame">
+          <div class="mini">
+            <div class="mini-head"><strong>Import from email &amp; SMS</strong></div>
+            <div class="im-msg" id="imMsg"><small>SMS · AJIO</small><p id="imText"></p></div>
+            <div class="im-arrow"><span data-icon="arrow" data-size="16"></span></div>
+            <div class="im-card" id="imCard">
+              <span class="im-store"><i class="dot-store"></i>AJIO</span><strong>Levi's Slim Fit T-shirt</strong>
+              <div class="im-steps"><i class="on"></i><i class="on"></i><i id="imStep3"></i><i></i></div>
+              <small id="imStatus">Order placed</small>
+            </div>
+          </div>
+        </div>
+        <h3>Any store, tracked</h3>
+        <p>Paste or forward order emails and SMS from Nykaa, AJIO, Meesho and more. Later messages update the same order.</p>
+        <a class="btn-ghost" href="/login.html">Learn more</a>
+      </article>
+    </div>
+  </section>
+
+  <!-- ============================== HOW IT WORKS ============================== -->
+  <section class="lp-section lp-how" id="how">
+    <div class="lp-head" data-reveal>
+      <span class="lp-pill"><i></i>How it works</span>
+      <h2>From search to doorstep<br>in three steps.</h2>
+    </div>
+    <div class="how-steps" id="howSteps">
+      <div class="how-line"><i id="howLine"></i></div>
+      <div class="how-step" data-reveal style="--d:.0s"><span class="how-n">1</span><h3>Search once</h3><p>ShopSync asks every store in parallel and lines up the offers.</p></div>
+      <div class="how-step" data-reveal style="--d:.12s"><span class="how-n">2</span><h3>Pay the real lowest</h3><p>Your cards, coupons and fees are applied so you see the true cheapest deal.</p></div>
+      <div class="how-step" data-reveal style="--d:.24s"><span class="how-n">3</span><h3>Relax after buying</h3><p>Orders, return deadlines, warranties and budgets are tracked for you.</p></div>
+    </div>
+  </section>
+
+  <!-- ============================== CTA + ASSISTANT ============================== -->
+  <section class="lp-final" id="assistant" data-glow>
+    <div class="lp-final-left" data-reveal="left">
+      <div class="lp-chat" data-tilt="6">
+        <div class="lc-head"><span class="brand-mark" data-icon="spark" data-size="15"></span><div><strong>ShopSync assistant</strong><small>Online</small></div></div>
+        <div class="lc-body" id="chatDemo"></div>
+        <div class="lc-input"><span id="chatTyping"></span><span class="lc-send" data-icon="send" data-size="15"></span></div>
+      </div>
+    </div>
+    <div class="lp-final-right" data-reveal="right">
+      <h2>Shop smarter, starting with your next order.</h2>
+      <p>Create a free account, or open the demo and explore everything with sample orders already loaded.</p>
+      <div class="lp-cta">
+        <a class="btn-butter" href="/login.html#signup">Sign up free</a>
+        <a class="btn-glass" href="/login.html" data-magnetic>Open the demo</a>
+      </div>
+      <div class="lp-asks">
+        <div class="lp-asks-head"><small>Ask the assistant</small><div class="lp-dots" id="askDots"></div></div>
+        <div class="lp-ask" id="askCard"><p id="askText"></p><small id="askHint"></small></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="lp-foot">
+    <a class="brand" href="/"><span class="brand-mark" data-icon="logo" data-size="16"></span>ShopSync</a>
+    <p>A Java course project. Marketplace prices, offers and orders are simulated for demonstration.</p>
+    <a href="/login.html">Sign in</a>
+  </footer>
+
+  <script src="js/icons.js"></script>
+  <script src="js/motion.js"></script>
+  <script src="js/landing.js"></script>
+</body>
+</html>

@@ -48,6 +48,7 @@
     errorEl.textContent = "";
   }
   document.querySelectorAll(".auth-tab").forEach((t) => t.addEventListener("click", () => setMode(t.dataset.mode)));
+  if (location.hash === "#signup") setMode("signup");   // "Get started" on the landing page
 
   // ---------- password helpers ----------
   $("#peekBtn").addEventListener("click", () => {

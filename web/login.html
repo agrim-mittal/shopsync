@@ -4,21 +4,22 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sign in · ShopSync</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23111827'/><path d='M9 12h14l-1.2 11H10.2z' fill='none' stroke='white' stroke-width='2'/><path d='M12.5 12v-1.5a3.5 3.5 0 0 1 7 0V12' fill='none' stroke='white' stroke-width='2'/></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%231b4741'/><path d='M9 12h14l-1.2 11H10.2z' fill='none' stroke='%23ebe0a6' stroke-width='2'/><path d='M12.5 12v-1.5a3.5 3.5 0 0 1 7 0V12' fill='none' stroke='%23ebe0a6' stroke-width='2'/></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/login.css">
+  <link rel="stylesheet" href="css/theme.css">
   <script>try{document.documentElement.dataset.theme=localStorage.getItem("ss-theme")||"light"}catch(e){}</script>
 </head>
 <body class="login-page">
   <header class="login-top">
-    <div class="brand"><span class="brand-mark" data-icon="bag" data-size="16"></span>ShopSync</div>
-    <button class="icon-btn" id="themeToggle" aria-label="Toggle theme"></button>
+    <a class="brand" href="/"><span class="brand-mark" data-icon="logo" data-size="18"></span>ShopSync</a>
+    <div class="login-top-actions"><a class="back-link" href="/"><span data-icon="arrow" data-size="15"></span>Back to home</a><button class="icon-btn" id="themeToggle" aria-label="Toggle theme"></button></div>
   </header>
 
   <main class="login-shell">
-    <section class="login-intro">
+    <section class="login-intro" data-glow>
       <div class="hero-grid" aria-hidden="true"></div>
       <div class="hero-orb" aria-hidden="true"></div>
       <p class="kicker">Price comparison &amp; order tracking</p>
@@ -27,7 +28,7 @@
         and get clear advice on what to buy and when.</p>
 
       <!-- static product preview -->
-      <div class="preview" aria-hidden="true">
+      <div class="preview" aria-hidden="true" data-tilt="7">
         <div class="pv-head">
           <span class="pv-icon" data-icon="phone" data-size="20"></span>
           <div>
@@ -40,7 +41,7 @@
         <div class="pv-row"><span><i class="dot-store amazon"></i>Amazon</span><span></span><b>₹71,399</b></div>
         <div class="pv-row"><span><i class="dot-store croma"></i>Croma</span><span></span><b>₹72,499</b></div>
         <svg class="pv-chart" viewBox="0 0 300 54" preserveAspectRatio="none">
-          <defs><linearGradient id="pvFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#3b82f6" stop-opacity=".18"/><stop offset="1" stop-color="#3b82f6" stop-opacity="0"/></linearGradient></defs>
+          <defs><linearGradient id="pvFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#1b4741" stop-opacity=".18"/><stop offset="1" stop-color="#1b4741" stop-opacity="0"/></linearGradient></defs>
           <path class="pv-area" d="M0,18 L30,16 L60,20 L90,17 L120,22 L150,40 L170,44 L190,38 L210,20 L240,22 L270,19 L300,26 L300,54 L0,54 Z" fill="url(#pvFill)"/>
           <polyline class="pv-line" points="0,18 30,16 60,20 90,17 120,22 150,40 170,44 190,38 210,20 240,22 270,19 300,26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
         </svg>
@@ -49,7 +50,7 @@
       <ul class="points">
         <li><span data-icon="check" data-size="16"></span>Live prices from four stores</li>
         <li><span data-icon="check" data-size="16"></span>90-day price history and buying advice</li>
-        <li><span data-icon="check" data-size="16"></span>Return and COD policies side by side</li>
+        <li><span data-icon="check" data-size="16"></span>Price alerts, budgets and return reminders</li>
       </ul>
     </section>
 
@@ -94,6 +95,7 @@
   </main>
 
   <script src="js/icons.js"></script>
+  <script src="js/motion.js"></script>
   <script src="js/login.js"></script>
 </body>
 </html>

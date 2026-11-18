@@ -44,7 +44,7 @@ import java.util.function.Consumer;
  * HTTP layer built on the JDK's own lightweight server (com.sun.net.httpserver),
  * so no framework is required.
  *
- * Public:   /login.html, static assets, POST /api/auth/signup, POST /api/auth/login,
+ * Public:   / (landing page), /login.html, static assets, GET /api/public/deals, POST /api/auth/signup, POST /api/auth/login,
  *           POST /api/inbox/hook/{secret} (authenticated by the secret)
  * Signed-in only (session cookie): everything else, see {@link #route}.
  */
@@ -125,6 +125,10 @@ public class WebServer {
         try {
             if (req.path.startsWith("/api/auth/")) {
                 handleAuth(req);
+                return;
+            }
+            if (req.path.equals("/api/public/deals") && req.method.equals("GET")) {   // landing page ticker: no user data
+                sendJson(ex, 200, productService.deals(req.qInt("limit", 10, 1, 18)));
                 return;
             }
             if (req.path.startsWith("/api/inbox/hook/")) {   // authenticated by the secret in the URL, not a cookie
@@ -595,9 +599,10 @@ public class WebServer {
         boolean signedIn = currentUser(ex) != null;
 
         // The app requires a session; the login page is for signed-out visitors.
-        if (path.equals("/") || path.equals("/index.html")) {
+        if (path.equals("/")) {
+            path = signedIn ? "/index.html" : "/landing.html";   // visitors see the landing page
+        } else if (path.equals("/index.html")) {
             if (!signedIn) { redirect(ex, "/login.html"); return; }
-            path = "/index.html";
         } else if (path.equals("/login.html") && signedIn) {
             redirect(ex, "/");
             return;
